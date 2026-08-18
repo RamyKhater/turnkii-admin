@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { styles, products, inspirationShots, contentBlocks, services } from "@/lib/db/schema";
+import { styles, products, inspirationShots, contentBlocks, services, handovers } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
 
@@ -21,6 +21,7 @@ export async function updateStyle(formData: FormData) {
     leadTime: String(formData.get("leadTime") ?? "").trim(),
     pieceCount: String(formData.get("pieceCount") ?? "").trim(),
     heroImage: String(formData.get("heroImage") ?? "").trim() || null,
+    closeups: jsonArray<{ image: string; label: string; note: string }>(formData.get("closeups")),
     published: bool(formData.get("published")),
     sortOrder: Number(formData.get("sortOrder") ?? 0),
     updatedAt: new Date(),
@@ -30,6 +31,57 @@ export async function updateStyle(formData: FormData) {
   await logActivity(user.id, "content.style.update", "style", id);
   revalidatePath("/content/styles");
   redirect("/content/styles");
+}
+
+export async function createStyle(formData: FormData) {
+  const user = await assertCap("content:edit");
+  const name = String(formData.get("name") ?? "New style").trim() || "New style";
+  const db = await getDb();
+  let key = slug(name);
+  const clash = await db.select({ id: styles.id }).from(styles).where(eq(styles.key, key)).limit(1);
+  if (clash.length) key = `${key}-${Date.now().toString(36).slice(-4)}`;
+  const [row] = await db.insert(styles).values({ key, name, published: false }).returning();
+  await logActivity(user.id, "content.style.create", "style", row.id);
+  revalidatePath("/content/styles");
+  redirect(`/content/styles/${row.id}`);
+}
+
+// ---- Handovers ----
+export async function updateHandover(formData: FormData) {
+  const user = await assertCap("content:edit");
+  const id = Number(formData.get("id"));
+  const data = {
+    location: String(formData.get("location") ?? "").trim(),
+    title: String(formData.get("title") ?? "").trim() || "Untitled handover",
+    provider: String(formData.get("provider") ?? "").trim(),
+    role: String(formData.get("role") ?? "").trim(),
+    brandMark: String(formData.get("brandMark") ?? "").trim().slice(0, 3).toUpperCase(),
+    brandHex: String(formData.get("brandHex") ?? "").trim() || "#2E4A3A",
+    shots: jsonArray<string | { image?: string }>(formData.get("shots"))
+      .map((x) => (typeof x === "string" ? x : x?.image ?? ""))
+      .filter(Boolean),
+    published: bool(formData.get("published")),
+    sortOrder: Number(formData.get("sortOrder") ?? 0),
+    updatedAt: new Date(),
+  };
+  const db = await getDb();
+  await db.update(handovers).set(data).where(eq(handovers.id, id));
+  await logActivity(user.id, "content.handover.update", "handover", id);
+  revalidatePath("/content/handovers");
+  redirect("/content/handovers");
+}
+
+export async function createHandover(formData: FormData) {
+  const user = await assertCap("content:edit");
+  const title = String(formData.get("title") ?? "New handover").trim() || "New handover";
+  const db = await getDb();
+  let key = slug(title);
+  const clash = await db.select({ id: handovers.id }).from(handovers).where(eq(handovers.key, key)).limit(1);
+  if (clash.length) key = `${key}-${Date.now().toString(36).slice(-4)}`;
+  const [row] = await db.insert(handovers).values({ key, title, published: false }).returning();
+  await logActivity(user.id, "content.handover.create", "handover", row.id);
+  revalidatePath("/content/handovers");
+  redirect(`/content/handovers/${row.id}`);
 }
 
 export async function updateProduct(formData: FormData) {
@@ -88,8 +140,19 @@ export async function updateInspiration(formData: FormData) {
   redirect("/content/inspiration");
 }
 
-const TABLE = { style: styles, product: products, inspiration: inspirationShots, service: services } as const;
-const LISTPATH = { style: "styles", product: "marketplace", inspiration: "inspiration", service: "services" } as const;
+const TABLE = { style: styles, product: products, inspiration: inspirationShots, service: services, handover: handovers } as const;
+const LISTPATH = { style: "styles", product: "marketplace", inspiration: "inspiration", service: "services", handover: "handovers" } as const;
+
+/** Parse a JSON array submitted from a client repeater field; [] on any error. */
+function jsonArray<T>(v: FormDataEntryValue | null): T[] {
+  if (typeof v !== "string" || !v.trim()) return [];
+  try {
+    const parsed = JSON.parse(v);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
 type Entity = keyof typeof TABLE;
 
 /** Toggle published from a list row (entity + id). */

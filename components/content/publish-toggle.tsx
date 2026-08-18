@@ -7,7 +7,7 @@ export function PublishToggle({
   id,
   published,
 }: {
-  entity: "style" | "product" | "inspiration" | "service";
+  entity: "style" | "product" | "inspiration" | "service" | "handover";
   id: number;
   published: boolean;
 }) {

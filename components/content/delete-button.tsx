@@ -9,7 +9,7 @@ export function DeleteButton({
   name,
   redirectTo,
 }: {
-  entity: "style" | "product" | "inspiration" | "service";
+  entity: "style" | "product" | "inspiration" | "service" | "handover";
   id: number;
   name: string;
   redirectTo?: string;

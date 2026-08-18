@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { contentBlocks, styles, services, products, inspirationShots } from "@/lib/db/schema";
+import { contentBlocks, styles, services, products, inspirationShots, handovers, siteSettings } from "@/lib/db/schema";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -20,7 +20,7 @@ export async function OPTIONS() {
  */
 export async function GET() {
   const db = await getDb();
-  const [blocks, st, sv, pr, ins] = await Promise.all([
+  const [blocks, st, sv, pr, ins, ho, settings] = await Promise.all([
     db.select().from(contentBlocks),
     db.select().from(styles).where(eq(styles.published, true)).orderBy(asc(styles.sortOrder)),
     db.select().from(services).where(eq(services.published, true)).orderBy(asc(services.sortOrder)),
@@ -30,13 +30,24 @@ export async function GET() {
       .from(inspirationShots)
       .where(eq(inspirationShots.published, true))
       .orderBy(asc(inspirationShots.sortOrder)),
+    db.select().from(handovers).where(eq(handovers.published, true)).orderBy(asc(handovers.sortOrder)),
+    db.select().from(siteSettings),
   ]);
 
   const block = (k: string) => blocks.find((b) => b.key === k)?.value ?? null;
   const published = block("__published") as { at?: string } | null;
 
+  // Section visibility from the vertical feature flags (key = "vertical.<name>").
+  const sections: Record<string, boolean> = {};
+  for (const s of settings) {
+    if (s.group === "vertical" && s.key.startsWith("vertical.")) {
+      sections[s.key.slice("vertical.".length)] = s.enabled;
+    }
+  }
+
   const payload = {
     publishedAt: published?.at ?? null,
+    sections,
     hero: block("hero"),
     stats: block("stats") ?? [],
     styles: st.map((s) => ({
@@ -48,6 +59,7 @@ export async function GET() {
       pieceCount: s.pieceCount,
       image: s.heroImage,
       palette: s.palette ?? [],
+      closeups: s.closeups ?? [],
     })),
     services: sv
       .filter((s) => s.enabled)
@@ -74,6 +86,16 @@ export async function GET() {
       title: i.title,
       spec: i.spec,
       image: i.image,
+    })),
+    handovers: ho.map((h) => ({
+      key: h.key,
+      location: h.location,
+      title: h.title,
+      provider: h.provider,
+      role: h.role,
+      brandMark: h.brandMark,
+      brandHex: h.brandHex,
+      shots: h.shots ?? [],
     })),
   };
 

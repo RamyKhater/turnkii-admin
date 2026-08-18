@@ -5,6 +5,11 @@
  * on the site, ready to edit.
  */
 
+// Public site origin — images are seeded as absolute URLs so they render in
+// both the admin previews and the live site (and pass the site's http() guard).
+const SITE = "https://turnkii-site.vercel.app";
+const A = (f: string) => `${SITE}/assets/${f}`;
+
 export const SERVICES = [
   { key: "finishing", name: "Finishing", short: "Walls, floors, ceilings, MEP and paint to a liveable standard.", lead: "6–9 wks", priceFrom: "3,500", image: "/services/finishing.jpg" },
   { key: "furniture", name: "Furniture & FF&E", short: "Sofas, beds, dining, lighting and soft goods, delivered and styled.", lead: "4–6 wks", priceFrom: "On request", image: "/services/furniture.jpg" },
@@ -16,21 +21,62 @@ export const SERVICES = [
 ];
 
 export const STYLES = [
-  { key: "warm", name: "Warm Contemporary", fromPrice: "11,500", leadTime: "4 wks", pieceCount: "38", heroImage: "/styles/warm.jpg",
+  { key: "warm", name: "Warm Contemporary", fromPrice: "11,500", leadTime: "4 wks", pieceCount: "38", heroImage: A("style-warm.jpg"),
     blurb: "Soft mass and warm timber — sand and bone upholstery, walnut casegoods, olive accents.",
-    palette: [{ name: "Sand", hex: "#D9CDB8" }, { name: "Walnut", hex: "#6B4A33" }, { name: "Olive", hex: "#6C7A20" }, { name: "Bone", hex: "#F1EBDF" }] },
-  { key: "neoclassic", name: "Neo-Classic Calm", fromPrice: "14,800", leadTime: "6 wks", pieceCount: "41", heroImage: "/styles/neoclassic.png",
+    palette: [{ name: "Sand", hex: "#D9CDB8" }, { name: "Walnut", hex: "#6B4A33" }, { name: "Olive", hex: "#6C7A20" }, { name: "Bone", hex: "#F1EBDF" }],
+    closeups: [
+      { image: A("style-warm.jpg"), label: "Bouclé weave", note: "Sofa and lounge chair upholstery" },
+      { image: A("style-warm.jpg"), label: "Wool rug pile", note: "Hand-loomed, 12mm cut pile" },
+      { image: A("style-warm.jpg"), label: "Walnut veneer", note: "Crown-cut, matt lacquer" },
+      { image: A("style-warm.jpg"), label: "Opal glass pendant", note: "Brushed brass stem" },
+    ] },
+  { key: "neoclassic", name: "Neo-Classic Calm", fromPrice: "14,800", leadTime: "6 wks", pieceCount: "41", heroImage: A("style-neoclassic.png"),
     blurb: "Panelled walls, quiet symmetry and sage, with brass and smoked glass as the only ornament.",
-    palette: [{ name: "Chalk", hex: "#EDE9E0" }, { name: "Sage", hex: "#8D9779" }, { name: "Brass", hex: "#B79150" }, { name: "Graphite", hex: "#3C3C36" }] },
-  { key: "majlis", name: "Modern Majlis", fromPrice: "16,200", leadTime: "6 wks", pieceCount: "34", heroImage: "/styles/majlis.jpg",
+    palette: [{ name: "Chalk", hex: "#EDE9E0" }, { name: "Sage", hex: "#8D9779" }, { name: "Brass", hex: "#B79150" }, { name: "Graphite", hex: "#3C3C36" }],
+    closeups: [
+      { image: A("style-neoclassic.png"), label: "Wall panel profile", note: "MDF frame, sprayed satin" },
+      { image: A("style-neoclassic.png"), label: "Smoked glass pendant", note: "Brass canopy, cluster of three" },
+      { image: A("style-neoclassic.png"), label: "Sage weave", note: "Sofa upholstery, 50k Martindale" },
+      { image: A("style-neoclassic.png"), label: "Stone table edge", note: "Sculpted base, honed top" },
+    ] },
+  { key: "majlis", name: "Modern Majlis", fromPrice: "16,200", leadTime: "6 wks", pieceCount: "34", heroImage: A("style-majlis.jpg"),
     blurb: "Deep perimeter seating, low tables and gold — built for hosting large groups.",
-    palette: [{ name: "Cocoa", hex: "#4A3227" }, { name: "Camel", hex: "#B8895C" }, { name: "Gold", hex: "#C2A055" }, { name: "Cream", hex: "#EFE5D5" }] },
-  { key: "eclectic", name: "Layered Eclectic", fromPrice: "12,400", leadTime: "5 wks", pieceCount: "46", heroImage: "/styles/eclectic.jpg",
+    palette: [{ name: "Cocoa", hex: "#4A3227" }, { name: "Camel", hex: "#B8895C" }, { name: "Gold", hex: "#C2A055" }, { name: "Cream", hex: "#EFE5D5" }],
+    closeups: [
+      { image: A("style-majlis.jpg"), label: "Channelled velvet", note: "Majlis seat, 60k Martindale" },
+      { image: A("style-majlis.jpg"), label: "Ring chandelier", note: "Faceted glass, gold frame" },
+      { image: A("style-majlis.jpg"), label: "Sheer + blackout stack", note: "Full-height curtain wall" },
+      { image: A("style-majlis.jpg"), label: "Stone low table", note: "Cocoa marble, bullnose edge" },
+    ] },
+  { key: "eclectic", name: "Layered Eclectic", fromPrice: "12,400", leadTime: "5 wks", pieceCount: "46", heroImage: A("style-eclectic.jpg"),
     blurb: "Teal, rattan and plants — a photograph-ready character that suits short-stay listings.",
-    palette: [{ name: "Teal", hex: "#1F5B5B" }, { name: "Rattan", hex: "#C79B62" }, { name: "Linen", hex: "#E6DFD0" }, { name: "Terracotta", hex: "#B5613C" }] },
-  { key: "coastal", name: "Coastal Light", fromPrice: "10,900", leadTime: "4 wks", pieceCount: "36", heroImage: "/styles/coastal.jpg",
+    palette: [{ name: "Teal", hex: "#1F5B5B" }, { name: "Rattan", hex: "#C79B62" }, { name: "Linen", hex: "#E6DFD0" }, { name: "Terracotta", hex: "#B5613C" }],
+    closeups: [
+      { image: A("style-eclectic.jpg"), label: "Teal velvet", note: "Sofa upholstery, 60k Martindale" },
+      { image: A("style-eclectic.jpg"), label: "Rattan cane weave", note: "Cabinet fronts and chair backs" },
+      { image: A("style-eclectic.jpg"), label: "Open shelf dressing", note: "Ceramics, books, planting" },
+      { image: A("style-eclectic.jpg"), label: "Chunky wool throw", note: "Hand-knitted, undyed" },
+    ] },
+  { key: "coastal", name: "Coastal Light", fromPrice: "10,900", leadTime: "4 wks", pieceCount: "36", heroImage: A("style-coastal.jpg"),
     blurb: "Bone, oak and sea green, built for salt and sun — washable covers, UV-stable outdoor pieces.",
-    palette: [{ name: "Bone", hex: "#F1EBDF" }, { name: "Oak", hex: "#C9A87C" }, { name: "Sea green", hex: "#7FA79B" }, { name: "Slate", hex: "#5C6B70" }] },
+    palette: [{ name: "Bone", hex: "#F1EBDF" }, { name: "Oak", hex: "#C9A87C" }, { name: "Sea green", hex: "#7FA79B" }, { name: "Slate", hex: "#5C6B70" }],
+    closeups: [
+      { image: A("style-coastal.jpg"), label: "Washed cotton cover", note: "Removable, machine washable" },
+      { image: A("style-coastal.jpg"), label: "Limed oak grain", note: "Open pore, UV-stable finish" },
+      { image: A("style-coastal.jpg"), label: "Sheer linen curtain", note: "Full height, sun-filtering" },
+      { image: A("style-coastal.jpg"), label: "Jute rug edge", note: "Flat weave, bound edge" },
+    ] },
+];
+
+export const HANDOVERS = [
+  { key: "zayed", location: "Sheikh Zayed", title: "2-bed apartment, full finishing + FF&E", provider: "Naos Contracting", role: "Main contractor", brandMark: "NC", brandHex: "#2E4A3A",
+    shots: [A("style-warm.jpg"), A("style-neoclassic.png"), A("style-eclectic.jpg"), A("style-coastal.jpg")] },
+  { key: "newcairo", location: "New Cairo", title: "Villa reception and family living", provider: "Atelier Doss", role: "Joinery & fit-out", brandMark: "AD", brandHex: "#6B4A33",
+    shots: [A("style-neoclassic.png"), A("style-warm.jpg"), A("style-majlis.jpg"), A("style-eclectic.jpg")] },
+  { key: "north", location: "North Coast", title: "Chalet package, 6 units for rental", provider: "Sahel Works", role: "FF&E supplier", brandMark: "SW", brandHex: "#3F6A73",
+    shots: [A("style-coastal.jpg"), A("style-eclectic.jpg"), A("style-warm.jpg"), A("style-majlis.jpg")] },
+  { key: "maadi", location: "Maadi", title: "Short-stay conversion, 3 studios", provider: "Hadaba Build", role: "Finishing contractor", brandMark: "HB", brandHex: "#7A4A2B",
+    shots: [A("style-eclectic.jpg"), A("style-majlis.jpg"), A("style-coastal.jpg"), A("style-neoclassic.png")] },
 ];
 
 export const PRODUCTS = [

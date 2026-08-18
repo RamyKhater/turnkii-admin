@@ -222,12 +222,29 @@ export const styles = pgTable("styles", {
   pieceCount: text("piece_count"),
   heroImage: text("hero_image"),
   palette: jsonb("palette").$type<{ name: string; hex: string }[]>().default([]),
+  closeups: jsonb("closeups").$type<{ image: string; label: string; note: string }[]>().default([]),
   materials: jsonb("materials").$type<unknown[]>().default([]),
   furniture: jsonb("furniture").$type<unknown[]>().default([]),
   published: boolean("published").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const handovers = pgTable("handovers", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  location: text("location"),
+  title: text("title").notNull(),
+  provider: text("provider"),
+  role: text("role"),
+  brandMark: text("brand_mark"), // 2-letter badge
+  brandHex: text("brand_hex").default("#2E4A3A"),
+  shots: jsonb("shots").$type<string[]>().default([]), // gallery images
+  published: boolean("published").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type Handover = typeof handovers.$inferSelect;
 
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),

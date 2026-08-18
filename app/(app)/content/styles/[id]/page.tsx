@@ -6,6 +6,8 @@ import { styles } from "@/lib/db/schema";
 import { PageHeader, Card } from "@/components/ui";
 import { Field, Textarea, CheckField, SubmitButton } from "@/components/form";
 import { ImageField } from "@/components/content/image-field";
+import { MediaRepeater } from "@/components/content/media-repeater";
+import { DeleteButton } from "@/components/content/delete-button";
 import { updateStyle } from "@/lib/content/actions";
 
 export default async function StyleEdit({ params }: { params: Promise<{ id: string }> }) {
@@ -19,7 +21,12 @@ export default async function StyleEdit({ params }: { params: Promise<{ id: stri
       <PageHeader
         eyebrow="Design styles"
         title={`Edit · ${s.name}`}
-        actions={<Link href="/content/styles" className="rounded-full border border-line px-4 py-2 text-sm font-semibold hover:border-ink">← Styles</Link>}
+        actions={
+          <div className="flex items-center gap-4">
+            <DeleteButton entity="style" id={s.id} name={s.name} redirectTo="/content/styles" />
+            <Link href="/content/styles" className="rounded-full border border-line px-4 py-2 text-sm font-semibold hover:border-ink">← Styles</Link>
+          </div>
+        }
       />
       <div className="max-w-2xl p-6 lg:p-8">
         <Card className="p-6">
@@ -33,6 +40,16 @@ export default async function StyleEdit({ params }: { params: Promise<{ id: stri
               <Field label="Pieces" name="pieceCount" defaultValue={s.pieceCount} />
             </div>
             <ImageField name="heroImage" label="Hero image" defaultValue={s.heroImage} />
+            <MediaRepeater
+              name="closeups"
+              label="Close-ups"
+              addLabel="close-up"
+              textFields={[
+                { key: "label", label: "Label", placeholder: "e.g. Bouclé weave" },
+                { key: "note", label: "Note", placeholder: "e.g. Sofa upholstery" },
+              ]}
+              initial={(s.closeups ?? []) as Record<string, string>[]}
+            />
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-bold uppercase tracking-wider text-muted">Palette</span>
               <div className="flex flex-wrap gap-2">

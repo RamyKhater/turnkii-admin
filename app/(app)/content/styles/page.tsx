@@ -4,6 +4,8 @@ import { getDb } from "@/lib/db";
 import { styles } from "@/lib/db/schema";
 import { PageHeader, Card } from "@/components/ui";
 import { PublishToggle } from "@/components/content/publish-toggle";
+import { createStyle } from "@/lib/content/actions";
+import { DeleteButton } from "@/components/content/delete-button";
 
 export default async function StylesList() {
   const db = await getDb();
@@ -17,7 +19,17 @@ export default async function StylesList() {
         sub="The five costed directions shown on the site."
         actions={<Link href="/content" className="rounded-full border border-line px-4 py-2 text-sm font-semibold hover:border-ink">← Content</Link>}
       />
-      <div className="p-6 lg:p-8">
+      <div className="space-y-4 p-6 lg:p-8">
+        <Card className="p-4">
+          <form action={createStyle} className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-1 flex-col gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted">Add a style</span>
+              <input name="name" placeholder="e.g. Art-Deco Revival" className="rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none focus:border-ink" />
+            </label>
+            <button type="submit" className="rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-cream hover:bg-lime hover:text-ink">Create draft</button>
+          </form>
+        </Card>
+
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-sm">
@@ -49,7 +61,10 @@ export default async function StylesList() {
                     <td className="px-3 py-3 text-sub">{s.leadTime}</td>
                     <td className="px-3 py-3"><PublishToggle entity="style" id={s.id} published={s.published} /></td>
                     <td className="px-5 py-3 text-right">
-                      <Link href={`/content/styles/${s.id}`} className="text-sm font-bold text-olive hover:text-ink">Edit</Link>
+                      <div className="flex justify-end gap-4">
+                        <Link href={`/content/styles/${s.id}`} className="text-sm font-bold text-olive hover:text-ink">Edit</Link>
+                        <DeleteButton entity="style" id={s.id} name={s.name} />
+                      </div>
                     </td>
                   </tr>
                 ))}

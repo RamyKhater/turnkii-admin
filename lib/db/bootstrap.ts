@@ -11,9 +11,9 @@
  */
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "./index";
-import { users, siteSettings, styles, products, services, inspirationShots, contentBlocks } from "./schema";
+import { users, siteSettings, styles, products, services, inspirationShots, contentBlocks, handovers } from "./schema";
 import { hashPassword } from "../auth/password";
-import { SERVICES, STYLES, PRODUCTS, INSPIRATION, CONTENT_BLOCKS } from "./content-data";
+import { SERVICES, STYLES, PRODUCTS, INSPIRATION, CONTENT_BLOCKS, HANDOVERS } from "./content-data";
 
 const BASELINE_SETTINGS = [
   { key: "vertical.services", label: "Services", group: "vertical", enabled: true },
@@ -68,7 +68,7 @@ async function main() {
   //    edits. This is the content the admin edits and the site renders.
   const seedIfEmpty = async (
     label: string,
-    table: typeof styles | typeof products | typeof services | typeof inspirationShots | typeof contentBlocks,
+    table: typeof styles | typeof products | typeof services | typeof inspirationShots | typeof contentBlocks | typeof handovers,
     rows: Record<string, unknown>[],
   ) => {
     const [{ c }] = await db.select({ c: sql<number>`count(*)::int` }).from(table);
@@ -86,6 +86,23 @@ async function main() {
   await seedIfEmpty("products", products, PRODUCTS.map((p, i) => ({ ...p, image: `/products/${i + 1}.jpg`, sortOrder: i })));
   await seedIfEmpty("inspiration shots", inspirationShots, INSPIRATION.map((s, i) => ({ ...s, image: `/inspiration/${i + 1}.jpg`, sortOrder: i })));
   await seedIfEmpty("content blocks", contentBlocks, CONTENT_BLOCKS);
+  await seedIfEmpty("handovers", handovers, HANDOVERS.map((h, i) => ({ ...h, sortOrder: i })));
+
+  // 4) backfill styles that predate closeups/absolute hero images — only fills
+  //    gaps (empty closeups, or an old "/styles/..." hero path); never clobbers edits.
+  const existingStyles = await db.select().from(styles);
+  for (const row of existingStyles) {
+    const seed = STYLES.find((s) => s.key === row.key);
+    if (!seed) continue;
+    const patch: Record<string, unknown> = {};
+    if (!row.closeups || (row.closeups as unknown[]).length === 0) patch.closeups = seed.closeups;
+    if (!row.heroImage || row.heroImage.startsWith("/styles/")) patch.heroImage = seed.heroImage;
+    if (Object.keys(patch).length) {
+      patch.updatedAt = new Date();
+      await db.update(styles).set(patch).where(eq(styles.id, row.id));
+      console.log(`✓ Backfilled style ${row.key} (${Object.keys(patch).filter((k) => k !== "updatedAt").join(", ")}).`);
+    }
+  }
 
   console.log("Done. Sign in and build out your team from Settings → Team.");
   process.exit(0);

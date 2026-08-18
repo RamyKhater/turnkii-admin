@@ -3,7 +3,7 @@ import { getDb } from "./index";
 import {
   users, sessions, requests, requestNotes, styles, products,
   inspirationShots, contentBlocks, activityLog, services, properties,
-  projects, payments, projectUpdates, owners, ownerSessions, notifications, siteSettings, type Role,
+  projects, payments, projectUpdates, owners, ownerSessions, notifications, siteSettings, handovers, type Role,
 } from "./schema";
 
 const OWNERS = [
@@ -13,7 +13,7 @@ const OWNERS = [
 const OWNER_PASSWORD = "owner1234";
 import { hashPassword } from "../auth/password";
 
-import { SERVICES, STYLES, PRODUCTS, INSPIRATION, CONTENT_BLOCKS } from "./content-data";
+import { SERVICES, STYLES, PRODUCTS, INSPIRATION, CONTENT_BLOCKS, HANDOVERS } from "./content-data";
 
 const PROPERTIES = [
   { name: "Zed East · Apartment 704", ownerName: "Ramy Adel", ownerPhone: "+20 10 2000 0704", ownerEmail: "ramy@example.com", type: "Apartment", location: "Sheikh Zayed", area: 164, units: 1, style: "warm", status: "in_progress", notes: "Finishing week 5 of 8. Full FF&E." },
@@ -87,6 +87,7 @@ async function main() {
   await db.delete(projects);
   await db.delete(ownerSessions);
   await db.delete(owners);
+  await db.delete(handovers);
   await db.delete(inspirationShots);
   await db.delete(products);
   await db.delete(styles);
@@ -109,6 +110,7 @@ async function main() {
   await db.insert(inspirationShots).values(INSPIRATION.map((s, i) => ({ ...s, image: `/inspiration/${i + 1}.jpg`, sortOrder: i })));
   await db.insert(contentBlocks).values(CONTENT_BLOCKS);
   await db.insert(services).values(SERVICES.map((s, i) => ({ ...s, sortOrder: i })));
+  await db.insert(handovers).values(HANDOVERS.map((h, i) => ({ ...h, sortOrder: i })));
   const ownerPw = hashPassword(OWNER_PASSWORD);
   const insertedOwners = await db.insert(owners).values(OWNERS.map((o) => ({ ...o, passwordHash: ownerPw }))).returning();
   const ownerByEmail = new Map(insertedOwners.map((o) => [o.email, o.id]));
