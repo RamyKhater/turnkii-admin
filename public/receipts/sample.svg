@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="880" viewBox="0 0 640 880" font-family="ui-monospace, Menlo, monospace">
+  <rect width="640" height="880" fill="#f6f3ec"/>
+  <rect x="40" y="40" width="560" height="800" rx="18" fill="#ffffff" stroke="#e4e0d5"/>
+  <text x="72" y="104" font-size="26" font-weight="700" fill="#12130e" font-family="Georgia, serif">National Bank of Egypt</text>
+  <text x="72" y="134" font-size="15" fill="#8a8a79">Transfer confirmation · sample receipt</text>
+  <line x1="72" y1="160" x2="568" y2="160" stroke="#e4e0d5"/>
+  <g font-size="15" fill="#5e5f52">
+    <text x="72" y="210">Reference</text><text x="568" y="210" text-anchor="end" fill="#12130e" font-weight="700">TRX-100001</text>
+    <text x="72" y="250">Date</text><text x="568" y="250" text-anchor="end" fill="#12130e">2026-08-01 11:42</text>
+    <text x="72" y="290">From</text><text x="568" y="290" text-anchor="end" fill="#12130e">Owner account ****4471</text>
+    <text x="72" y="330">To</text><text x="568" y="330" text-anchor="end" fill="#12130e">Turnkii Ltd ****9920</text>
+    <text x="72" y="370">Method</text><text x="568" y="370" text-anchor="end" fill="#12130e">Bank transfer</text>
+  </g>
+  <line x1="72" y1="400" x2="568" y2="400" stroke="#e4e0d5"/>
+  <text x="72" y="452" font-size="15" fill="#8a8a79">Amount</text>
+  <text x="568" y="470" text-anchor="end" font-size="40" font-weight="700" fill="#12130e" font-family="Georgia, serif">EGP 600,000</text>
+  <rect x="72" y="520" width="200" height="44" rx="8" fill="#d6f23c"/>
+  <text x="172" y="548" text-anchor="middle" font-size="16" font-weight="700" fill="#12130e">COMPLETED</text>
+  <text x="72" y="820" font-size="12" fill="#b6b2a4">Sample proof-of-payment image for demo data.</text>
+</svg>

@@ -1,26 +1,58 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-ink: #12130e;
+  --color-ink-2: #1a1c15;
+  --color-cream: #f6f3ec;
+  --color-paper: #ffffff;
+  --color-sand: #efebe1;
+  --color-line: #e4e0d5;
+  --color-lime: #d6f23c;
+  --color-lime-2: #e6ff6b;
+  --color-olive: #6c7a20;
+  --color-olive-deep: #4e5a16;
+  --color-muted: #8a8a79;
+  --color-sub: #5e5f52;
+
+  --color-ok: #4e7a1e;
+  --color-warn: #a9741f;
+  --color-crit: #b23b3b;
+  --color-info: #3a5a8a;
+
+  --font-sans: var(--font-manrope), system-ui, sans-serif;
+  --font-serif: var(--font-instrument), Georgia, serif;
+
+  --radius-card: 16px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: var(--color-lime);
+  color: var(--color-ink);
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+/* Focus ring for keyboard users */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
