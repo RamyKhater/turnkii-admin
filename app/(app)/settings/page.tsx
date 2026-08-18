@@ -1,13 +1,20 @@
+import { eq } from "drizzle-orm";
 import { requireCap } from "@/lib/auth/guard";
 import { getSettings } from "@/lib/settings";
+import { getDb } from "@/lib/db";
+import { contentBlocks } from "@/lib/db/schema";
 import { PageHeader, Card } from "@/components/ui";
 import { Field, SubmitButton } from "@/components/form";
 import { VerticalToggle } from "@/components/settings/vertical-toggle";
+import { PublishButton } from "@/components/content/publish-button";
 import { updateSla } from "@/lib/settings/actions";
 
 export default async function SettingsPage() {
   await requireCap("settings:manage");
   const rows = await getSettings();
+  const db = await getDb();
+  const [pub] = await db.select().from(contentBlocks).where(eq(contentBlocks.key, "__published")).limit(1);
+  const lastPublished = ((pub?.value as { at?: string } | undefined)?.at) ?? null;
   const verticals = rows.filter((r) => r.group === "vertical");
   const first = Number(rows.find((r) => r.key === "sla.firstResponseHours")?.value ?? 24);
   const resolve = Number(rows.find((r) => r.key === "sla.resolveDays")?.value ?? 21);
@@ -18,13 +25,14 @@ export default async function SettingsPage() {
         eyebrow="Settings"
         title="Site & workflow settings"
         sub="Turn website verticals on or off, and set the SLA targets that drive alerts."
+        actions={<PublishButton lastPublished={lastPublished} />}
       />
       <div className="max-w-2xl space-y-5 p-6 lg:p-8">
         <Card className="p-6">
           <h2 className="text-sm font-bold">Website verticals</h2>
           <p className="mt-1 text-sm text-sub">
-            Disable a vertical to hide it from the public site. The site reads this from
-            <code className="mx-1 rounded bg-sand px-1.5 py-0.5 text-xs">/api/site-config</code>.
+            Disable a vertical to hide its section and nav link from the public site. Each toggle
+            rebuilds the live site automatically (about a minute).
           </p>
           <div className="mt-4 divide-y divide-line">
             {verticals.map((v) => (

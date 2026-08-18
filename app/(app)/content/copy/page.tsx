@@ -4,9 +4,10 @@ import { getDb } from "@/lib/db";
 import { contentBlocks } from "@/lib/db/schema";
 import { PageHeader, Card } from "@/components/ui";
 import { Field, Textarea, SubmitButton } from "@/components/form";
+import { ImageField } from "@/components/content/image-field";
 import { saveCopy } from "@/lib/content/actions";
 
-type Hero = { kicker?: string; headline?: string; sub?: string };
+type Hero = { kicker?: string; headline?: string; sub?: string; image?: string | null };
 type Stat = { n?: string; label?: string };
 
 export default async function CopyEditor() {
@@ -30,7 +31,9 @@ export default async function CopyEditor() {
             <h2 className="text-sm font-bold">Hero</h2>
             <Field label="Kicker" name="kicker" defaultValue={hero.kicker} />
             <Textarea label="Headline" name="headline" defaultValue={hero.headline} rows={2} />
+            <p className="-mt-2 text-xs text-muted">Tip: wrap a word in **stars** to highlight it in lime.</p>
             <Textarea label="Sub-headline" name="sub" defaultValue={hero.sub} rows={3} />
+            <ImageField name="heroImage" label="Hero background image" defaultValue={hero.image} />
           </Card>
 
           <Card className="space-y-3 p-6">

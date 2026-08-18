@@ -44,8 +44,9 @@ export default async function ContentHub() {
         <Card className="flex items-start gap-3 border-olive/30 bg-sand/60 p-4 text-sm text-sub">
           <span aria-hidden className="text-base">↗</span>
           <p>
-            Edit any section below, then hit <b className="text-ink">Publish to website</b>. Saving keeps
-            drafts in the admin; publishing pushes the live copy and rebuilds turnkii.app (about a minute).
+            Every change you save here <b className="text-ink">publishes to the live site automatically</b> and
+            rebuilds turnkii.app (about a minute). Use <b className="text-ink">Publish to website</b> to force a
+            rebuild, e.g. after toggling sections in Settings.
           </p>
         </Card>
       </div>

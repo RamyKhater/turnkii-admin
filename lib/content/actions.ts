@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db";
 import { styles, products, inspirationShots, contentBlocks, services, handovers } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
+import { triggerSiteRebuild } from "@/lib/publish/trigger";
 
 const bool = (v: FormDataEntryValue | null) => v === "on" || v === "true";
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "item";
@@ -29,6 +30,7 @@ export async function updateStyle(formData: FormData) {
   const db = await getDb();
   await db.update(styles).set(data).where(eq(styles.id, id));
   await logActivity(user.id, "content.style.update", "style", id);
+  await triggerSiteRebuild();
   revalidatePath("/content/styles");
   redirect("/content/styles");
 }
@@ -67,6 +69,7 @@ export async function updateHandover(formData: FormData) {
   const db = await getDb();
   await db.update(handovers).set(data).where(eq(handovers.id, id));
   await logActivity(user.id, "content.handover.update", "handover", id);
+  await triggerSiteRebuild();
   revalidatePath("/content/handovers");
   redirect("/content/handovers");
 }
@@ -101,6 +104,7 @@ export async function updateProduct(formData: FormData) {
   const db = await getDb();
   await db.update(products).set(data).where(eq(products.id, id));
   await logActivity(user.id, "content.product.update", "product", id);
+  await triggerSiteRebuild();
   revalidatePath("/content/marketplace");
   redirect("/content/marketplace");
 }
@@ -136,6 +140,7 @@ export async function updateInspiration(formData: FormData) {
   const db = await getDb();
   await db.update(inspirationShots).set(data).where(eq(inspirationShots.id, id));
   await logActivity(user.id, "content.inspiration.update", "inspiration", id);
+  await triggerSiteRebuild();
   revalidatePath("/content/inspiration");
   redirect("/content/inspiration");
 }
@@ -161,6 +166,7 @@ export async function togglePublish(entity: Entity, id: number, next: boolean) {
   const db = await getDb();
   await db.update(TABLE[entity]).set({ published: next, updatedAt: new Date() }).where(eq(TABLE[entity].id, id));
   await logActivity(user.id, `content.${entity}.publish`, entity, id, { published: next });
+  await triggerSiteRebuild();
   revalidatePath(`/content/${LISTPATH[entity]}`);
 }
 
@@ -169,6 +175,7 @@ export async function deleteItem(entity: Entity, id: number) {
   const db = await getDb();
   await db.delete(TABLE[entity]).where(eq(TABLE[entity].id, id));
   await logActivity(user.id, `content.${entity}.delete`, entity, id);
+  await triggerSiteRebuild();
   revalidatePath(`/content/${LISTPATH[entity]}`);
 }
 
@@ -191,6 +198,7 @@ export async function updateService(formData: FormData) {
   const db = await getDb();
   await db.update(services).set(data).where(eq(services.id, id));
   await logActivity(user.id, "content.service.update", "service", id);
+  await triggerSiteRebuild();
   revalidatePath("/content/services");
   redirect("/content/services");
 }
@@ -219,11 +227,12 @@ export async function saveCopy(formData: FormData) {
   const user = await assertCap("content:edit");
   const db = await getDb();
 
-  const hero = heroSchema.parse({
+  const parsed = heroSchema.parse({
     kicker: formData.get("kicker"),
     headline: formData.get("headline"),
     sub: formData.get("sub"),
   });
+  const hero = { ...parsed, image: String(formData.get("heroImage") ?? "").trim() || null };
   const stats = [0, 1, 2, 3].map((i) => ({
     n: String(formData.get(`stat_n_${i}`) ?? "").trim(),
     label: String(formData.get(`stat_label_${i}`) ?? "").trim(),
@@ -242,6 +251,7 @@ export async function saveCopy(formData: FormData) {
     });
 
   await logActivity(user.id, "content.copy.update", "content", "hero+stats");
+  await triggerSiteRebuild();
   revalidatePath("/content/copy");
   redirect("/content/copy");
 }

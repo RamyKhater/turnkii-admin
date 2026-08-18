@@ -5,12 +5,14 @@ import { getDb } from "@/lib/db";
 import { siteSettings } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
+import { triggerSiteRebuild } from "@/lib/publish/trigger";
 
 export async function setVertical(key: string, enabled: boolean) {
   const user = await assertCap("settings:manage");
   const db = await getDb();
   await db.update(siteSettings).set({ enabled, updatedAt: new Date() }).where(eq(siteSettings.key, key));
   await logActivity(user.id, "settings.vertical", "setting", key, { enabled });
+  await triggerSiteRebuild();
   revalidatePath("/settings");
 }
 
