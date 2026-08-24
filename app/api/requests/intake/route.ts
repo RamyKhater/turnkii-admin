@@ -19,6 +19,13 @@ const schema = z.object({
   budgetPlan: z.string().trim().max(60).optional(),
   channel: z.string().trim().max(60).optional(),
   referrer: z.string().trim().max(500).optional(),
+  utmSource: z.string().trim().max(120).optional(),
+  utmMedium: z.string().trim().max(120).optional(),
+  utmCampaign: z.string().trim().max(200).optional(),
+  utmTerm: z.string().trim().max(200).optional(),
+  utmContent: z.string().trim().max(200).optional(),
+  gclid: z.string().trim().max(400).optional(),
+  fbclid: z.string().trim().max(400).optional(),
   message: z.string().trim().max(4000).optional(),
 });
 
@@ -53,6 +60,23 @@ export async function POST(req: Request) {
     );
   }
 
+  // Derive a clean acquisition channel from the UTM/click params so it feeds the
+  // existing traffic-source insights (campaign detail is kept separately).
+  const d = parsed.data;
+  const src = (d.utmSource || "").toLowerCase();
+  const med = (d.utmMedium || "").toLowerCase();
+  const cap = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
+  let channel: string;
+  if (src) {
+    if (/cpc|ppc|paid/.test(med)) channel = /google|bing|search/.test(src) ? "Paid search" : "Paid social";
+    else if (/email|newsletter/.test(med)) channel = "Email";
+    else if (/social/.test(med) || /facebook|instagram|tiktok|linkedin|twitter|x\.com/.test(src)) channel = "Organic social";
+    else if (/google|bing|organic/.test(src)) channel = "Organic search";
+    else channel = cap(src);
+  } else if (d.gclid) channel = "Paid search";
+  else if (d.fbclid) channel = "Paid social";
+  else channel = d.channel || "Direct";
+
   const db = await getDb();
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(requests);
   const ref = `TK-${2400 + n}`;
@@ -71,8 +95,15 @@ export async function POST(req: Request) {
       services: parsed.data.services ?? [],
       style: parsed.data.style,
       budgetPlan: parsed.data.budgetPlan,
-      channel: parsed.data.channel || "Direct",
+      channel,
       referrer: parsed.data.referrer,
+      utmSource: d.utmSource,
+      utmMedium: d.utmMedium,
+      utmCampaign: d.utmCampaign,
+      utmTerm: d.utmTerm,
+      utmContent: d.utmContent,
+      gclid: d.gclid,
+      fbclid: d.fbclid,
       message: parsed.data.message,
       status: "new",
       source: "website",

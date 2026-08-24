@@ -8,7 +8,7 @@ import { requests, users, styles, services, payments, projects, type Request } f
 import { PageHeader, Card, StatTile, StatusBadge, Avatar, PIPELINE, STATUS_META } from "@/components/ui";
 import { firstResponseSla, resolutionSla } from "@/lib/sla";
 import { getSiteConfig } from "@/lib/settings";
-import { sourceInsights, serviceInsights, userInsights } from "@/lib/insights";
+import { sourceInsights, serviceInsights, userInsights, campaignInsights } from "@/lib/insights";
 import { fmtEGP, summarize, paymentState } from "@/lib/payments";
 import { ExportMenu } from "@/components/insights/export-menu";
 
@@ -111,6 +111,7 @@ export default async function DashboardPage() {
   // source / service / user insight tables
   const showInsights = can(user.role, "analytics:view");
   const sources = sourceInsights(rows);
+  const campaigns = campaignInsights(rows);
   const maxSource = Math.max(1, ...sources.map((s) => s.requests));
   const serviceTable = serviceInsights(rows, serviceRows.map((s) => s.name));
   const team = showInsights ? userInsights(rows, us) : [];
@@ -312,6 +313,40 @@ export default async function DashboardPage() {
             </table>
           </div>
         </Card>
+
+        {/* Campaign performance — requests that arrived tagged with a utm_campaign */}
+        {campaigns.length > 0 && (
+          <Card className="overflow-hidden">
+            <div className="px-5 py-4">
+              <h2 className="text-sm font-bold">Campaign performance</h2>
+              <p className="text-xs text-sub">Leads attributed to a UTM campaign, with win rate</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead>
+                  <tr className="border-y border-line bg-sand/40 text-left text-xs uppercase tracking-wider text-muted">
+                    <th className="px-5 py-2.5 font-bold">Campaign</th>
+                    <th className="px-3 py-2.5 font-bold">Source</th>
+                    <th className="px-3 py-2.5 font-bold">Leads</th>
+                    <th className="px-3 py-2.5 font-bold">Won</th>
+                    <th className="px-5 py-2.5 font-bold">Won rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {campaigns.map((c) => (
+                    <tr key={`${c.campaign}-${c.source}`} className="border-b border-line last:border-0 hover:bg-sand/30">
+                      <td className="px-5 py-2.5 font-semibold">{c.campaign}</td>
+                      <td className="px-3 py-2.5 text-sub">{c.source}</td>
+                      <td className="px-3 py-2.5 font-bold tabular">{c.requests}</td>
+                      <td className="px-3 py-2.5 tabular">{c.won}</td>
+                      <td className="px-5 py-2.5 tabular">{c.wonRate}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
 
         <div className="grid gap-5 lg:grid-cols-2">
           {/* Requests per service type */}

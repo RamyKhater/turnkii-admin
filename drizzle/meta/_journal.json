@@ -15,6 +15,13 @@
       "when": 1787050232194,
       "tag": "0001_dizzy_swordsman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787575811334,
+      "tag": "0002_lovely_alex_power",
+      "breakpoints": true
     }
   ]
 }

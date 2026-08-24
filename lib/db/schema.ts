@@ -71,6 +71,13 @@ export const requests = pgTable("requests", {
   source: text("source").notNull().default("website"), // submission origin: website | phone | manual
   channel: text("channel").notNull().default("Direct"), // acquisition / traffic source
   referrer: text("referrer"),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  utmTerm: text("utm_term"),
+  utmContent: text("utm_content"),
+  gclid: text("gclid"),
+  fbclid: text("fbclid"),
   firstResponseAt: timestamp("first_response_at", { withTimezone: true }),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

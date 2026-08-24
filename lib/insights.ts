@@ -43,6 +43,23 @@ export function sourceInsights(rows: Request[]): SourceRow[] {
     .sort((a, b) => b.requests - a.requests);
 }
 
+export type CampaignRow = { campaign: string; source: string; requests: number; won: number; wonRate: number };
+
+/** UTM campaign breakdown — only requests that arrived tagged with a campaign. */
+export function campaignInsights(rows: Request[]): CampaignRow[] {
+  const tagged = rows.filter((r) => r.utmCampaign);
+  const keys = Array.from(new Set(tagged.map((r) => `${r.utmCampaign}||${r.utmSource ?? ""}`)));
+  return keys
+    .map((k) => {
+      const [campaign, source] = k.split("||");
+      const g = tagged.filter((r) => (r.utmCampaign ?? "") === campaign && (r.utmSource ?? "") === source);
+      const won = g.filter((r) => r.status === "won").length;
+      const lost = g.filter((r) => r.status === "lost").length;
+      return { campaign, source: source || "—", requests: g.length, won, wonRate: won + lost ? Math.round((won / (won + lost)) * 100) : 0 };
+    })
+    .sort((a, b) => b.requests - a.requests);
+}
+
 export type ServiceRow = { service: string; requests: number; won: number; wonRate: number };
 
 /** Requests per service type. */
