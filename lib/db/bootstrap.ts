@@ -104,6 +104,45 @@ async function main() {
     }
   }
 
+  // 5) backfill inspiration/product images that still point at the non-existent
+  //    seed placeholders ("/inspiration/N.jpg", "/products/N.jpg") so the admin
+  //    shows real thumbnails (the site already falls back to these). Never
+  //    touches a real uploaded (http) image.
+  const INSP_ASSET: Record<string, string> = {
+    warm: "style-warm.jpg", neoclassic: "style-neoclassic.png", majlis: "style-majlis.jpg",
+    eclectic: "style-eclectic.jpg", coastal: "style-coastal.jpg",
+  };
+  const CAT_ASSET: Record<string, string> = {
+    Seating: "style-warm.jpg", Tables: "style-warm.jpg", Beds: "style-majlis.jpg",
+    Lighting: "style-neoclassic.png", Appliances: "style-coastal.jpg",
+    Outdoor: "style-coastal.jpg", "Soft goods": "style-eclectic.jpg",
+  };
+  const asset = (f: string) => `https://turnkii-site.vercel.app/assets/${f}`;
+
+  const shots = await db.select().from(inspirationShots);
+  let ns = 0;
+  for (const row of shots) {
+    if (!row.image || row.image.startsWith("/inspiration/")) {
+      await db.update(inspirationShots)
+        .set({ image: asset(INSP_ASSET[row.key] || "style-warm.jpg"), updatedAt: new Date() })
+        .where(eq(inspirationShots.id, row.id));
+      ns++;
+    }
+  }
+  if (ns) console.log(`✓ Backfilled ${ns} inspiration images.`);
+
+  const prods = await db.select().from(products);
+  let np = 0;
+  for (const row of prods) {
+    if (!row.image || row.image.startsWith("/products/")) {
+      await db.update(products)
+        .set({ image: asset(CAT_ASSET[row.category ?? ""] || "style-warm.jpg"), updatedAt: new Date() })
+        .where(eq(products.id, row.id));
+      np++;
+    }
+  }
+  if (np) console.log(`✓ Backfilled ${np} product images.`);
+
   console.log("Done. Sign in and build out your team from Settings → Team.");
   process.exit(0);
 }
