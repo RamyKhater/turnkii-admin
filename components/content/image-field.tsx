@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import { uploadImage } from "./downscale";
 
 export function ImageField({
   name,
@@ -19,12 +20,7 @@ export function ImageField({
     setBusy(true);
     setError(null);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Upload failed");
-      setUrl(json.url);
+      setUrl(await uploadImage(file));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -70,7 +66,7 @@ export function ImageField({
             }}
           />
           {error && <span className="text-xs font-medium text-crit">{error}</span>}
-          <span className="text-xs text-muted">JPG, PNG, WebP or AVIF · up to 8MB</span>
+          <span className="text-xs text-muted">JPG, PNG, WebP, AVIF or HEIC — large photos are resized automatically.</span>
         </div>
       </div>
     </div>

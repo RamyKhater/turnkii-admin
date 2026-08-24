@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { inspirationShots, styles } from "@/lib/db/schema";
 import { PageHeader, Card } from "@/components/ui";
 import { Field, Textarea, SelectField, CheckField, SubmitButton } from "@/components/form";
+import { ImageField } from "@/components/content/image-field";
 import { updateInspiration } from "@/lib/content/actions";
 
 export default async function InspirationEdit({ params }: { params: Promise<{ id: string }> }) {
@@ -27,6 +28,7 @@ export default async function InspirationEdit({ params }: { params: Promise<{ id
             <input type="hidden" name="id" value={s.id} />
             <Field label="Title" name="title" defaultValue={s.title} required />
             <Textarea label="Spec" name="spec" defaultValue={s.spec} rows={2} />
+            <ImageField name="image" label="Photo" defaultValue={s.image} />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Room" name="room" defaultValue={s.room} />
               <SelectField label="Style" name="key" defaultValue={s.key} options={styleRows.map((r) => ({ value: r.key, label: r.name }))} />

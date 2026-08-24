@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import { uploadImage } from "./downscale";
 
 type TextField = { key: string; label: string; placeholder?: string };
 type Item = Record<string, string>; // always has "image", plus any text fields
@@ -43,12 +44,7 @@ export function MediaRepeater({
   async function upload(i: number, file: File) {
     setBusy(i);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Upload failed");
-      update(i, { image: json.url });
+      update(i, { image: await uploadImage(file) });
     } catch (e) {
       alert(e instanceof Error ? e.message : "Upload failed");
     } finally {

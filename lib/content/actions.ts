@@ -133,6 +133,7 @@ export async function updateInspiration(formData: FormData) {
     room: String(formData.get("room") ?? "").trim(),
     title: String(formData.get("title") ?? "").trim(),
     spec: String(formData.get("spec") ?? "").trim(),
+    image: String(formData.get("image") ?? "").trim() || null,
     published: bool(formData.get("published")),
     sortOrder: Number(formData.get("sortOrder") ?? 0),
     updatedAt: new Date(),
