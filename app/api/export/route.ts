@@ -54,12 +54,12 @@ export async function GET(req: Request2) {
         ];
       });
   } else {
-    headers = ["Ref", "Contact", "Phone", "Email", "Property", "Area m2", "Units", "Location", "Services", "Style", "Traffic source", "Origin", "Status", "Priority", "Owner", "Received", "First response", "Resolved", "First-response SLA", "Resolution SLA"];
+    headers = ["Ref", "Contact", "Phone", "Email", "Property", "Area m2", "Units", "Location", "Services", "Style", "Traffic source", "Campaign", "UTM source", "UTM medium", "UTM content", "Origin", "Status", "Priority", "Owner", "Received", "First response", "Resolved", "First-response SLA", "Resolution SLA"];
     data = rows
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .map((r) => [
         r.ref, r.contactName, r.phone, r.email, r.propertyType, r.area, r.units, r.location,
-        (r.services ?? []).join("; "), r.style, r.channel, r.source, r.status, r.priority,
+        (r.services ?? []).join("; "), r.style, r.channel, r.utmCampaign, r.utmSource, r.utmMedium, r.utmContent, r.source, r.status, r.priority,
         r.assignedTo ? nameOf.get(r.assignedTo) ?? "" : "", fmt(r.createdAt), fmt(r.firstResponseAt), fmt(r.resolvedAt),
         firstResponseSla(r, sla.firstResponseHours).state, resolutionSla(r, sla.resolveDays).state,
       ]);

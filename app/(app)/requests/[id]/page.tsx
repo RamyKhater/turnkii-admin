@@ -64,6 +64,11 @@ export default async function RequestDetailPage({
     ["Services", req.services?.length ? req.services.join(", ") : "—"],
     ["Financing", req.budgetPlan ?? "—"],
     ["Traffic source", req.channel ?? "—"],
+    ...((req.utmCampaign || req.utmSource || req.gclid || req.fbclid)
+      ? ([["Campaign",
+          [req.utmCampaign, req.utmSource, req.utmMedium].filter(Boolean).join(" · ") ||
+            (req.gclid ? "Google Ads click" : req.fbclid ? "Meta click" : "—")]] as [string, React.ReactNode][])
+      : []),
     ["Origin", <span key="s" className="capitalize">{req.source}</span>],
   ];
 
