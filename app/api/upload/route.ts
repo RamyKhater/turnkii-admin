@@ -7,10 +7,18 @@ import { can } from "@/lib/auth/rbac";
 import { logActivity } from "@/lib/activity";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
-const ALLOWED: Record<string, string> = {
-  "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif", "image/gif": "gif",
+export const runtime = "nodejs";
+
+// Accepted input formats — including iPhone HEIC/HEIF, which we convert below.
+const INPUT_TYPES = new Set([
+  "image/jpeg", "image/png", "image/webp", "image/avif", "image/gif", "image/heic", "image/heif",
+]);
+const EXT_TYPE: Record<string, string> = {
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+  avif: "image/avif", gif: "image/gif", heic: "image/heic", heif: "image/heif",
 };
-const MAX = 8 * 1024 * 1024; // 8 MB
+const MAX_IN = 30 * 1024 * 1024; // 30 MB (raw phone/HEIC photos can be large)
+const MAX_DIM = 2200; // cap the longest side for the web
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
@@ -22,37 +30,87 @@ export async function POST(req: Request) {
   const uploaderId = user?.id ?? null;
 
   const rl = await rateLimit(`upload:${uploaderId ?? owner?.id ?? clientIp(req.headers)}`, 30, 60_000);
-  if (!rl.ok) return Response.json({ error: "Too many uploads, slow down." }, { status: 429 });
+  if (!rl.ok) return Response.json({ error: "Too many uploads, please slow down." }, { status: 429 });
 
   const form = await req.formData();
   const file = form.get("file");
-  if (!(file instanceof File)) return Response.json({ error: "No file" }, { status: 400 });
-  const ext = ALLOWED[file.type];
-  if (!ext) return Response.json({ error: "Unsupported image type" }, { status: 415 });
-  if (file.size > MAX) return Response.json({ error: "Image too large (max 8MB)" }, { status: 413 });
+  if (!(file instanceof File)) return Response.json({ error: "No file received." }, { status: 400 });
 
-  const bytes = Buffer.from(await file.arrayBuffer());
+  // Resolve the kind from the MIME type, falling back to the filename extension
+  // (HEIC files often arrive with an empty or octet-stream type).
+  const fnExt = (file.name.split(".").pop() || "").toLowerCase();
+  const type = INPUT_TYPES.has(file.type) ? file.type : EXT_TYPE[fnExt];
+  if (!type || !INPUT_TYPES.has(type)) {
+    return Response.json(
+      { error: "That file isn't a supported image. Use a JPG, PNG, WebP, GIF or an iPhone HEIC photo." },
+      { status: 415 },
+    );
+  }
+  if (file.size > MAX_IN) {
+    return Response.json(
+      { error: `That image is too large (${(file.size / 1048576).toFixed(1)}MB). The limit is 30MB.` },
+      { status: 413 },
+    );
+  }
+
+  const input = Buffer.from(await file.arrayBuffer());
+
+  // Normalise for the web: honour EXIF rotation, cap dimensions, and convert
+  // camera formats (HEIC/AVIF/large JPEGs) to WebP. Keep PNG (transparency) and
+  // GIF (animation) in their own formats.
+  let out: Buffer;
+  let ext: string;
+  let contentType: string;
+  try {
+    if (type === "image/gif") {
+      out = input;
+      ext = "gif";
+      contentType = "image/gif";
+    } else {
+      const sharp = (await import("sharp")).default;
+      const pipeline = sharp(input, { failOn: "none" })
+        .rotate()
+        .resize(MAX_DIM, MAX_DIM, { fit: "inside", withoutEnlargement: true });
+      if (type === "image/png") {
+        out = await pipeline.png({ compressionLevel: 9 }).toBuffer();
+        ext = "png";
+        contentType = "image/png";
+      } else {
+        out = await pipeline.webp({ quality: 82 }).toBuffer();
+        ext = "webp";
+        contentType = "image/webp";
+      }
+    }
+  } catch (e) {
+    console.error("upload: image processing failed", e);
+    return Response.json(
+      { error: "Couldn't process that image — try exporting it as a JPG or PNG." },
+      { status: 422 },
+    );
+  }
+
   const name = `${randomUUID()}.${ext}`;
-
-  // Use Vercel Blob whenever a store is connected (OIDC on Vercel) or an
-  // explicit RW token is present; fall back to local disk only in dev.
   const useBlob = !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID || process.env.VERCEL);
   let url: string;
-  if (useBlob) {
-    const { put } = await import("@vercel/blob");
-    const blob = await put(`uploads/${name}`, bytes, {
-      access: "public",
-      contentType: file.type,
-      addRandomSuffix: false,
-      ...(process.env.BLOB_READ_WRITE_TOKEN ? { token: process.env.BLOB_READ_WRITE_TOKEN } : {}),
-    });
-    url = blob.url;
-  } else {
-    // Local dev fallback: write into public/uploads.
-    const dir = path.join(process.cwd(), "public", "uploads");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(path.join(dir, name), bytes);
-    url = `/uploads/${name}`;
+  try {
+    if (useBlob) {
+      const { put } = await import("@vercel/blob");
+      const blob = await put(`uploads/${name}`, out, {
+        access: "public",
+        contentType,
+        addRandomSuffix: false,
+        ...(process.env.BLOB_READ_WRITE_TOKEN ? { token: process.env.BLOB_READ_WRITE_TOKEN } : {}),
+      });
+      url = blob.url;
+    } else {
+      const dir = path.join(process.cwd(), "public", "uploads");
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(path.join(dir, name), out);
+      url = `/uploads/${name}`;
+    }
+  } catch (e) {
+    console.error("upload: storage failed", e);
+    return Response.json({ error: "Upload storage failed. Please try again." }, { status: 500 });
   }
 
   await logActivity(uploaderId, "media.upload", "media", name, owner ? { owner: owner.email } : undefined);

@@ -83,7 +83,7 @@ export function MediaRepeater({
               <input
                 ref={(el) => { fileRefs.current[i] = el; }}
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif"
                 className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(i, f); }}
               />
