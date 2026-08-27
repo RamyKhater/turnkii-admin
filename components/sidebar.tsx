@@ -8,7 +8,7 @@ import type { Role } from "@/lib/db/schema";
 type NavItem = {
   href: string;
   label: string;
-  section: "dashboard" | "requests" | "properties" | "projects" | "payments" | "content" | "users" | "settings";
+  section: "dashboard" | "requests" | "properties" | "projects" | "pricing" | "payments" | "content" | "users" | "settings";
   icon: React.ReactNode;
 };
 
@@ -23,6 +23,7 @@ const NAV: NavItem[] = [
   { href: "/requests", label: "Requests", section: "requests", icon: I("M4 6h16M4 12h16M4 18h10") },
   { href: "/properties", label: "Properties", section: "properties", icon: I("M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5M9 21v-6h6v6") },
   { href: "/projects", label: "Projects", section: "projects", icon: I("M3 7h7l2 3h9v9H3zM3 7V5h6l2 2") },
+  { href: "/pricing", label: "Pricing", section: "pricing", icon: I("M20 12l-8 8-9-9V4h7zM7.5 7.5h.01") },
   { href: "/payments", label: "Payments", section: "payments", icon: I("M2 7h20v10H2zM2 11h20M6 15h4") },
   { href: "/content", label: "Content", section: "content", icon: I("M12 20h9M3 20h4M4 4h16v10H4zM8 8h8M8 11h5") },
   { href: "/users", label: "Team", section: "users", icon: I("M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87") },

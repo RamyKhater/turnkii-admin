@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { projects, payments, properties } from "@/lib/db/schema";
 import { PageHeader, Card, StatTile } from "@/components/ui";
 import { fmtEGP, summarize } from "@/lib/payments";
+import { DeliveryDigest } from "@/components/projects/delivery-digest";
 
 const STATUS_CHIP: Record<string, string> = {
   active: "bg-info/10 text-info", on_hold: "bg-warn/15 text-warn", complete: "bg-ok/12 text-ok",
@@ -44,6 +45,8 @@ export default async function ProjectsPage() {
           <StatTile label="Collected" value={fmtEGP(totalCollected)} hint={`${totalContract ? Math.round((totalCollected / totalContract) * 100) : 0}%`} />
           <StatTile label="Overdue" value={fmtEGP(totalOverdue)} />
         </div>
+
+        {can(user.role, "projects:manage") && <DeliveryDigest />}
 
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">

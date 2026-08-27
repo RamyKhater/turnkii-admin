@@ -1,16 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq, asc, desc } from "drizzle-orm";
+import { eq, asc, desc, inArray } from "drizzle-orm";
 import { requireCap } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { projects, payments, properties, projectUpdates, users, styles } from "@/lib/db/schema";
+import { projects, payments, properties, projectUpdates, projectMedia, projectSignoffs, styles } from "@/lib/db/schema";
 import { PageHeader, Card, StatTile } from "@/components/ui";
 import { fmtEGP, summarize, KIND_LABEL } from "@/lib/payments";
 import { PaymentActions, PaymentStateBadge, AddPaymentForm } from "@/components/payments/controls";
 import { ProjectForm } from "@/components/projects/project-form";
-import { PostUpdateForm, UpdateRow } from "@/components/projects/updates";
 import { updateProject } from "@/lib/projects/actions";
+import { SendUpdateForm } from "@/components/projects/send-update";
+import { ProgressTimeline, type TLUpdate } from "@/components/projects/progress-timeline";
+
+const MEDIA_LIBRARY = [
+  { url: "https://turnkii.app/assets/style-warm.jpg", label: "Living room" },
+  { url: "https://turnkii.app/assets/style-neoclassic.png", label: "Reception" },
+  { url: "https://turnkii.app/assets/style-majlis.jpg", label: "Majlis" },
+  { url: "https://turnkii.app/assets/style-eclectic.jpg", label: "Bedroom" },
+  { url: "https://turnkii.app/assets/style-coastal.jpg", label: "Terrace" },
+];
 
 export default async function ProjectDetail({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireCap("payments:view");
@@ -22,9 +31,32 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
   const [prop] = pr.propertyId ? await db.select().from(properties).where(eq(properties.id, pr.propertyId)).limit(1) : [null];
   const schedule = await db.select().from(payments).where(eq(payments.projectId, pr.id)).orderBy(asc(payments.dueDate));
   const sum = summarize(schedule, pr.contractValue);
+  const canProgress = can(user.role, "projects:manage");
   const updates = await db.select().from(projectUpdates).where(eq(projectUpdates.projectId, pr.id)).orderBy(desc(projectUpdates.createdAt));
-  const us = await db.select({ id: users.id, name: users.name }).from(users);
-  const nameOf = new Map(us.map((u) => [u.id, u.name]));
+  const updateIds = updates.map((u) => u.id);
+  const media = updateIds.length ? await db.select().from(projectMedia).where(inArray(projectMedia.updateId, updateIds)).orderBy(asc(projectMedia.sort)) : [];
+  const signoffs = updateIds.length ? await db.select().from(projectSignoffs).where(inArray(projectSignoffs.updateId, updateIds)) : [];
+  const mediaByU = new Map<number, typeof media>();
+  for (const m of media) { const a = mediaByU.get(m.updateId) ?? []; a.push(m); mediaByU.set(m.updateId, a); }
+  const soByU = new Map(signoffs.map((s) => [s.updateId, s]));
+  const timeline: TLUpdate[] = updates
+    .filter((u) => (mediaByU.get(u.id) ?? []).length > 0)
+    .map((u) => {
+      const so = soByU.get(u.id);
+      return {
+        id: u.id, stage: u.stage ?? u.title, milestone: u.milestone, body: u.body, amount: u.amount ?? 0,
+        sentAtISO: (u.sentAt ?? u.createdAt).toISOString(),
+        media: (mediaByU.get(u.id) ?? []).map((m) => ({
+          id: m.id, type: m.type, url: m.url, caption: m.caption, status: m.status,
+          reason: m.reason, comment: m.comment, aiCaption: m.aiCaption, aiFlags: m.aiFlags ?? null,
+        })),
+        signoff: so ? {
+          id: so.id, ref: so.ref, signedByName: so.signedByName, signedByRole: so.signedByRole,
+          signedAtISO: so.signedAt.toISOString(), voidedAtISO: so.voidedAt ? so.voidedAt.toISOString() : null,
+          itemCount: so.itemCount, method: so.method, amount: so.amount,
+        } : null,
+      };
+    });
   const propRows = manage ? await db.select({ id: properties.id, name: properties.name }).from(properties).orderBy(asc(properties.name)) : [];
   const styleRows = manage ? await db.select({ key: styles.key, name: styles.name }).from(styles).orderBy(asc(styles.sortOrder)) : [];
 
@@ -109,17 +141,18 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
           )}
         </Card>
 
-        <Card className="p-5 lg:p-6">
-          <h2 className="text-sm font-bold">Project updates</h2>
-          <p className="text-xs text-sub">Progress the owner sees in their portal.</p>
-          {manage && <div className="mt-4 rounded-2xl border border-line p-4"><PostUpdateForm projectId={pr.id} /></div>}
-          <ol className="mt-6 space-y-4">
-            {updates.map((u) => (
-              <UpdateRow key={u.id} update={u} authorName={u.authorId ? nameOf.get(u.authorId) : undefined} canManage={manage} />
-            ))}
-            {updates.length === 0 && <li className="text-sm text-muted">No updates posted yet.</li>}
-          </ol>
-        </Card>
+        {canProgress && (
+          <Card className="p-5 lg:p-6">
+            <h2 className="text-sm font-bold">Send a progress update</h2>
+            <p className="text-xs text-sub">Share photos and video with the client. Each item needs their acceptance before the milestone can be signed.</p>
+            <div className="mt-4"><SendUpdateForm projectId={pr.id} library={MEDIA_LIBRARY} /></div>
+          </Card>
+        )}
+
+        <div>
+          <h2 className="mb-3 text-sm font-bold">Shared media &amp; client decisions</h2>
+          <ProgressTimeline projectId={pr.id} updates={timeline} manage={canProgress} />
+        </div>
       </div>
     </>
   );

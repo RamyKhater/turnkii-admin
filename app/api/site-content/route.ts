@@ -45,9 +45,14 @@ export async function GET() {
     }
   }
 
+  // Published rate card (source of truth for the live estimate). Null = the site
+  // falls back to pricing.js defaults.
+  const pricingRow = settings.find((s) => s.key === "pricing" && s.enabled);
+
   const payload = {
     publishedAt: published?.at ?? null,
     sections,
+    pricing: pricingRow?.value ?? null,
     hero: block("hero"),
     stats: block("stats") ?? [],
     styles: st.map((s) => ({

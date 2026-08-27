@@ -179,9 +179,49 @@ export const projectUpdates = pgTable("project_updates", {
   title: text("title").notNull(),
   body: text("body"),
   kind: text("kind").notNull().default("progress"), // progress | milestone | photo | note
-  image: text("image"),
+  image: text("image"),                             // legacy single image (kept for back-compat)
+  // ── Progress/approvals layer ─────────────────────────────────────────────
+  stage: text("stage"),                             // "Week 5 · Joinery and doors"
+  milestone: text("milestone"),                     // the milestone this update signs off
+  amount: integer("amount").notNull().default(0),   // EGP released on client sign-off
+  paymentId: integer("payment_id"),                 // payment row created/released on sign-off
   visibleToOwner: boolean("visible_to_owner").notNull().default(true),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Media items shared inside an update. The client's decision lives here, per item:
+// an update is signable only once every item is accepted.
+export const projectMedia = pgTable("project_media", {
+  id: serial("id").primaryKey(),
+  updateId: integer("update_id").notNull().references(() => projectUpdates.id, { onDelete: "cascade" }),
+  type: text("type").notNull().default("photo"),    // photo | video
+  url: text("url").notNull(),
+  caption: text("caption"),
+  status: text("status").notNull().default("pending"), // pending | accepted | rejected | reshoot
+  reason: text("reason"),                           // client's reason on reject/reshoot
+  comment: text("comment"),                         // client's free-text note
+  aiCaption: text("ai_caption"),                    // Claude-suggested caption
+  aiFlags: jsonb("ai_flags").$type<{ severity: string; issues: string[]; ok: boolean }>(), // snag/QA result
+  sort: integer("sort").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// A client's digital acceptance of a milestone — the payment-release document.
+// Immutable: a withdrawal is recorded as voidedAt, never by editing/deleting.
+export const projectSignoffs = pgTable("project_signoffs", {
+  id: serial("id").primaryKey(),
+  updateId: integer("update_id").notNull().references(() => projectUpdates.id, { onDelete: "cascade" }),
+  ref: text("ref").notNull(),                       // TK-SO-2418-03
+  signedByName: text("signed_by_name").notNull(),
+  signedByRole: text("signed_by_role").notNull().default("Owner"),
+  ownerId: integer("owner_id").references(() => owners.id, { onDelete: "set null" }),
+  itemCount: integer("item_count").notNull().default(0),
+  method: text("method").notNull().default("Account sign-off, verified mobile"),
+  amount: integer("amount").notNull().default(0),
+  signedAt: timestamp("signed_at", { withTimezone: true }).notNull().defaultNow(),
+  voidedAt: timestamp("voided_at", { withTimezone: true }),
+  voidedReason: text("voided_reason"),
 });
 
 export const notifications = pgTable("notifications", {
@@ -308,6 +348,8 @@ export type Property = typeof properties.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type ProjectUpdate = typeof projectUpdates.$inferSelect;
+export type ProjectMedia = typeof projectMedia.$inferSelect;
+export type ProjectSignoff = typeof projectSignoffs.$inferSelect;
 export type Owner = typeof owners.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type SiteSetting = typeof siteSettings.$inferSelect;

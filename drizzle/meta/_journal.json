@@ -22,6 +22,13 @@
       "when": 1787575811334,
       "tag": "0002_lovely_alex_power",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787784517769,
+      "tag": "0003_special_stone_men",
+      "breakpoints": true
     }
   ]
 }

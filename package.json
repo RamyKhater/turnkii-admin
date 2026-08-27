@@ -17,6 +17,7 @@
     "node": ">=20.9"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.121.0",
     "@electric-sql/pglite": "^0.5.4",
     "@neondatabase/serverless": "^1.1.0",
     "@upstash/redis": "^1.38.2",

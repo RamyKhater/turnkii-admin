@@ -3,8 +3,9 @@ import { getDb } from "./index";
 import {
   users, sessions, requests, requestNotes, styles, products,
   inspirationShots, contentBlocks, activityLog, services, properties,
-  projects, payments, projectUpdates, owners, ownerSessions, notifications, siteSettings, handovers, type Role,
+  projects, payments, projectUpdates, projectMedia, projectSignoffs, owners, ownerSessions, notifications, siteSettings, handovers, type Role,
 } from "./schema";
+import { RATE_CARD_DEFAULTS } from "../pricing";
 
 const OWNERS = [
   { name: "Ramy Adel", email: "ramy@example.com", phone: "+20 10 2000 0704" },
@@ -23,6 +24,7 @@ const PROPERTIES = [
 ];
 
 const SETTINGS = [
+  { key: "pricing", label: "Pricing rate card", group: "pricing", enabled: true, value: RATE_CARD_DEFAULTS },
   { key: "vertical.services", label: "Services", group: "vertical", enabled: true },
   { key: "vertical.styles", label: "Design styles", group: "vertical", enabled: true },
   { key: "vertical.inspiration", label: "Inspiration board", group: "vertical", enabled: true },
@@ -83,6 +85,8 @@ async function main() {
   await db.delete(sessions);
   await db.delete(requests);
   await db.delete(payments);
+  await db.delete(projectSignoffs);
+  await db.delete(projectMedia);
   await db.delete(projectUpdates);
   await db.delete(projects);
   await db.delete(ownerSessions);
@@ -231,17 +235,54 @@ async function main() {
   }
   console.log(`• ${PROJECT_DEFS.length} projects, ${payCount} payments`);
 
-  // a few project updates on the first project (owner-visible + one internal)
+  // ---- progress updates: media items + client decisions + a signed milestone ----
+  const A = "https://turnkii.app/assets/";
   const allProjs = await db.select().from(projects);
   const firstProj = allProjs[0];
-  if (firstProj) {
-    await db.insert(projectUpdates).values([
-      { projectId: firstProj.id, authorId: staff[0]?.id, title: "Site handover & protection complete", kind: "milestone", body: "Unit received, floors protected and MEP first-fix underway.", visibleToOwner: true, createdAt: day(-30) },
-      { projectId: firstProj.id, authorId: staff[0]?.id, title: "Kitchen carcasses installed", kind: "progress", body: "Cabinetry in place; worktop template booked for next week.", visibleToOwner: true, createdAt: day(-8) },
-      { projectId: firstProj.id, authorId: staff[0]?.id, title: "Pre-handover QA snag walk", kind: "note", body: "Internal snag list being closed before the client walkthrough.", visibleToOwner: false, createdAt: day(-2) },
-    ]);
-    console.log("• 3 project updates");
+  const doneProj = allProjs.find((p) => p.status === "complete") ?? allProjs[3];
+
+  type MediaSeed = { type?: "photo" | "video"; url: string; caption: string; status?: string; reason?: string; comment?: string };
+  async function seedUpdate(proj: typeof allProjs[number], u: { stage: string; milestone: string; amount: number; body: string; ago: number }, items: MediaSeed[], signed?: boolean) {
+    const [upd] = await db.insert(projectUpdates).values({
+      projectId: proj.id, authorId: staff[0]?.id, title: u.stage, stage: u.stage, milestone: u.milestone,
+      kind: "milestone", body: u.body, amount: u.amount, visibleToOwner: true, sentAt: day(-u.ago), createdAt: day(-u.ago),
+    }).returning();
+    await db.insert(projectMedia).values(items.map((it, i) => ({
+      updateId: upd.id, type: it.type ?? "photo", url: it.url, caption: it.caption,
+      status: it.status ?? "pending", reason: it.reason ?? null, comment: it.comment ?? null, sort: i,
+    })));
+    if (signed) {
+      await db.insert(projectSignoffs).values({
+        updateId: upd.id, ref: `TK-SO-${proj.id}-${String(upd.id).padStart(2, "0")}`,
+        signedByName: proj.ownerName ?? "Account holder", signedByRole: "Owner", ownerId: proj.ownerId ?? null,
+        itemCount: items.length, method: "Account sign-off, verified mobile", amount: u.amount, signedAt: day(-u.ago + 1),
+      });
+    }
+    return upd;
   }
+
+  if (firstProj) {
+    await seedUpdate(firstProj, { stage: "Week 5 · Joinery and doors", milestone: "Milestone 3 · Joinery and doors", amount: 412000, ago: 5, body: "Wardrobes hung in both bedrooms, doors primed. Handles arrive Sunday." }, [
+      { url: A + "style-warm.jpg", caption: "Master wardrobe, doors hung" },
+      { url: A + "style-eclectic.jpg", caption: "Second bedroom, primed" },
+      { type: "video", url: A + "style-majlis.jpg", caption: "Walk-through, 0:42" },
+    ]);
+    await seedUpdate(firstProj, { stage: "Week 4 · Plaster and paint", milestone: "Milestone 2 · Plaster and paint", amount: 336000, ago: 14, body: "Two coats on all walls. Ceiling coves complete." }, [
+      { url: A + "style-neoclassic.png", caption: "Living room, second coat", status: "accepted" },
+      { url: A + "style-coastal.jpg", caption: "Corridor and coves", status: "reshoot", reason: "Too dark", comment: "Can you shoot this with the lights on?" },
+    ]);
+    await seedUpdate(firstProj, { stage: "Week 2 · MEP rough-in", milestone: "Milestone 1 · MEP rough-in", amount: 288000, ago: 31, body: "Conduits, drainage and AC lines pressure-tested." }, [
+      { url: A + "style-warm.jpg", caption: "Kitchen wall, first fix", status: "accepted" },
+      { url: A + "style-majlis.jpg", caption: "AC lines, ceiling void", status: "rejected", reason: "Does not match the drawing", comment: "Second outlet is missing on the east wall." },
+    ]);
+  }
+  if (doneProj) {
+    await seedUpdate(doneProj, { stage: "Handover photography", milestone: "Milestone 5 · Handover", amount: 640000, ago: 90, body: "Final set after styling. Snag list closed." }, [
+      { url: A + "style-neoclassic.png", caption: "Reception, styled", status: "accepted" },
+      { type: "video", url: A + "style-warm.jpg", caption: "Full walk-through, 2:10", status: "accepted" },
+    ], true);
+  }
+  console.log("• progress updates with media + a signed milestone");
 
   // seed notifications for admin + ops (unread)
   const ops = insertedUsers.filter((u) => u.role === "admin" || u.role === "ops_manager");

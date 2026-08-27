@@ -2,10 +2,11 @@ import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { requireOwner } from "@/lib/owner/session";
 import { getDb } from "@/lib/db";
-import { inArray, desc } from "drizzle-orm";
-import { properties, projects, payments, projectUpdates } from "@/lib/db/schema";
+import { inArray, desc, asc } from "drizzle-orm";
+import { properties, projects, payments, projectUpdates, projectMedia, projectSignoffs } from "@/lib/db/schema";
 import { PortalShell } from "@/components/portal/shell";
 import { PayButton } from "@/components/portal/pay-dialog";
+import { Approvals, type PUpdate } from "@/components/portal/approvals";
 import { fmtEGP, summarize, paymentState, PAYMENT_STATE_META, KIND_LABEL } from "@/lib/payments";
 
 export default async function PortalHome() {
@@ -31,6 +32,25 @@ export default async function PortalHome() {
         .filter((u) => u.visibleToOwner).slice(0, 8)
     : [];
   const UPD_DOT: Record<string, string> = { progress: "bg-info", milestone: "bg-ok", photo: "bg-olive", note: "bg-muted" };
+
+  // Progress updates with media awaiting the owner's decision + sign-off.
+  const upIds = updates.map((u) => u.id);
+  const upMedia = upIds.length ? await db.select().from(projectMedia).where(inArray(projectMedia.updateId, upIds)).orderBy(asc(projectMedia.sort)) : [];
+  const upSign = upIds.length ? await db.select().from(projectSignoffs).where(inArray(projectSignoffs.updateId, upIds)) : [];
+  const mByU = new Map<number, typeof upMedia>();
+  for (const m of upMedia) { const a = mByU.get(m.updateId) ?? []; a.push(m); mByU.set(m.updateId, a); }
+  const sByU = new Map(upSign.map((s) => [s.updateId, s]));
+  const approvals: PUpdate[] = updates
+    .filter((u) => (mByU.get(u.id) ?? []).length > 0)
+    .map((u) => {
+      const so = sByU.get(u.id);
+      return {
+        id: u.id, stage: u.stage ?? u.title, milestone: u.milestone, body: u.body, amount: u.amount ?? 0,
+        sentAtISO: (u.sentAt ?? u.createdAt).toISOString(), projectName: projName.get(u.projectId) ?? "",
+        media: (mByU.get(u.id) ?? []).map((m) => ({ id: m.id, type: m.type, url: m.url, caption: m.caption, status: m.status, reason: m.reason })),
+        signed: !!(so && !so.voidedAt), signoffRef: so && !so.voidedAt ? so.ref : null,
+      };
+    });
 
   return (
     <PortalShell owner={owner} active="home">
@@ -67,6 +87,14 @@ export default async function PortalHome() {
           {projs.length === 0 && <p className="text-sm text-muted">No projects yet.</p>}
         </div>
       </section>
+
+      {approvals.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-bold">Approve your progress</h2>
+          <p className="mb-3 text-xs text-sub">Accept each item, or ask for a re-shoot. When everything is accepted you can sign off the milestone and release its payment.</p>
+          <Approvals updates={approvals} />
+        </section>
+      )}
 
       <section className="mt-8">
         <div className="flex items-center justify-between">
