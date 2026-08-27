@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { siteSettings } from "@/lib/db/schema";
@@ -12,8 +13,10 @@ export async function setVertical(key: string, enabled: boolean) {
   const db = await getDb();
   await db.update(siteSettings).set({ enabled, updatedAt: new Date() }).where(eq(siteSettings.key, key));
   await logActivity(user.id, "settings.vertical", "setting", key, { enabled });
-  await triggerSiteRebuild();
   revalidatePath("/settings");
+  // Fire the (slow, network) site rebuild AFTER the response is sent so the
+  // toggle returns immediately instead of waiting on the deploy hook.
+  after(() => triggerSiteRebuild());
 }
 
 export async function updateSla(formData: FormData) {

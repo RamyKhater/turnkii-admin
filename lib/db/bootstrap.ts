@@ -22,6 +22,7 @@ const BASELINE_SETTINGS = [
   { key: "vertical.ai_studio", label: "AI preview studio", group: "vertical", enabled: true },
   { key: "vertical.marketplace", label: "Marketplace", group: "vertical", enabled: true },
   { key: "vertical.financing", label: "Financing", group: "vertical", enabled: true },
+  { key: "vertical.facility", label: "Facility management", group: "vertical", enabled: true },
   { key: "sla.firstResponseHours", label: "First-response target (hours)", group: "sla", enabled: true, value: 24 },
   { key: "sla.resolveDays", label: "Resolution target (days)", group: "sla", enabled: true, value: 21 },
 ];
@@ -55,13 +56,16 @@ async function main() {
     console.log(`✓ Created admin ${email}.`);
   }
 
-  // 2) baseline site settings (feature flags + SLA) — only if none exist
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(siteSettings);
-  if (n === 0) {
-    await db.insert(siteSettings).values(BASELINE_SETTINGS);
-    console.log(`✓ Seeded ${BASELINE_SETTINGS.length} baseline settings.`);
+  // 2) baseline site settings (feature flags + SLA) — insert any that are missing
+  //    (idempotent: never clobbers an existing flag's enabled/value), so new
+  //    verticals like `vertical.facility` reach an already-provisioned prod DB.
+  const settingKeys = new Set((await db.select({ key: siteSettings.key }).from(siteSettings)).map((r) => r.key));
+  const missing = BASELINE_SETTINGS.filter((s) => !settingKeys.has(s.key));
+  if (missing.length) {
+    await db.insert(siteSettings).values(missing).onConflictDoNothing();
+    console.log(`✓ Added ${missing.length} missing settings: ${missing.map((s) => s.key).join(", ")}`);
   } else {
-    console.log(`Settings already present (${n}) — leaving them.`);
+    console.log(`Settings already complete (${settingKeys.size}) — leaving them.`);
   }
 
   // 3) baseline site content — each table only if empty, so it never clobbers
