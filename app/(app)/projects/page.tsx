@@ -7,6 +7,7 @@ import { projects, payments, properties } from "@/lib/db/schema";
 import { PageHeader, Card, StatTile } from "@/components/ui";
 import { fmtEGP, summarize } from "@/lib/payments";
 import { DeliveryDigest } from "@/components/projects/delivery-digest";
+import { ClickableRow } from "@/components/requests/clickable-row";
 
 const STATUS_CHIP: Record<string, string> = {
   active: "bg-info/10 text-info", on_hold: "bg-warn/15 text-warn", complete: "bg-ok/12 text-ok",
@@ -64,7 +65,7 @@ export default async function ProjectsPage() {
               </thead>
               <tbody>
                 {summaries.map(({ project: pr, sum }) => (
-                  <tr key={pr.id} className="border-b border-line last:border-0 hover:bg-sand/30">
+                  <ClickableRow key={pr.id} href={`/projects/${pr.id}`} className="border-b border-line last:border-0 hover:bg-sand/30">
                     <td className="px-5 py-3">
                       <Link href={`/projects/${pr.id}`} className="font-bold hover:text-olive">{pr.name}</Link>
                       <div className="text-xs text-muted">{pr.propertyId ? propName.get(pr.propertyId) : ""}</div>
@@ -84,7 +85,7 @@ export default async function ProjectsPage() {
                         : "—"}
                     </td>
                     <td className="px-5 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_CHIP[pr.status] ?? "bg-sand text-muted"}`}>{pr.status.replace("_", " ")}</span></td>
-                  </tr>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>

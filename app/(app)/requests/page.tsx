@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db";
 import { requests, users, styles } from "@/lib/db/schema";
 import { PageHeader, StatusBadge, Card, Avatar } from "@/components/ui";
 import { FilterBar } from "@/components/requests/filter-bar";
+import { ClickableRow } from "@/components/requests/clickable-row";
 
 export default async function RequestsPage({
   searchParams,
@@ -82,7 +83,7 @@ export default async function RequestsPage({
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="border-b border-line last:border-0 hover:bg-sand/30">
+                  <ClickableRow key={r.id} href={`/requests/${r.id}`} className="border-b border-line last:border-0 hover:bg-sand/30">
                     <td className="px-5 py-3">
                       <Link href={`/requests/${r.id}`} className="font-bold text-ink hover:text-olive">{r.ref}</Link>
                       <div className="text-xs text-muted"><span className="capitalize">{r.source}</span> · {r.channel}</div>
@@ -110,7 +111,7 @@ export default async function RequestsPage({
                       {r.createdAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
                     </td>
                     <td className="px-5 py-3"><StatusBadge status={r.status} /></td>
-                  </tr>
+                  </ClickableRow>
                 ))}
                 {rows.length === 0 && (
                   <tr>
