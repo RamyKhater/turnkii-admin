@@ -5,6 +5,8 @@ import { requests } from "@/lib/db/schema";
 import { logActivity } from "@/lib/activity";
 import { notifyRoles } from "@/lib/notifications";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { getFinancing } from "@/lib/financing/store";
+import { preApprovalLimit } from "@/lib/financing";
 
 const schema = z.object({
   contactName: z.string().trim().min(1).max(120),
@@ -82,12 +84,15 @@ export async function POST(req: Request) {
   else channel = d.channel || "Direct";
 
   // Financing pre-approvals recompute the indicative limit server-side so the
-  // number in the admin is trustworthy (35% instalment-to-income over 48 months,
-  // capped at the EGP 60M partner-bank ceiling) rather than whatever the browser sent.
+  // number in the admin is trustworthy — using the SAME published affordability
+  // rule the site shows (income share × horizon, capped at the bank ceiling),
+  // not whatever the browser sent.
   const isFinancing = d.kind === "financing";
-  const indicativeLimit = isFinancing && d.monthlyIncome
-    ? Math.min(60_000_000, Math.round((d.monthlyIncome * 0.35 * 48) / 50_000) * 50_000)
-    : undefined;
+  let indicativeLimit: number | undefined;
+  if (isFinancing && d.monthlyIncome) {
+    const { config } = await getFinancing();
+    indicativeLimit = preApprovalLimit(d.monthlyIncome, config);
+  }
 
   const db = await getDb();
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(requests);
