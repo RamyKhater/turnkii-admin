@@ -32,6 +32,7 @@ const SETTINGS = [
   { key: "vertical.marketplace", label: "Marketplace", group: "vertical", enabled: true },
   { key: "vertical.financing", label: "Financing", group: "vertical", enabled: true },
   { key: "vertical.facility", label: "Facility management", group: "vertical", enabled: true },
+  { key: "vertical.handovers", label: "Recent handovers", group: "vertical", enabled: true },
   { key: "sla.firstResponseHours", label: "First-response target (hours)", group: "sla", enabled: true, value: 24 },
   { key: "sla.resolveDays", label: "Resolution target (days)", group: "sla", enabled: true, value: 21 },
 ];
