@@ -61,6 +61,12 @@ export const requests = pgTable("requests", {
   kitchen: text("kitchen"),
   hvac: text("hvac"),
   budgetPlan: text("budget_plan"),
+  // Lead type discriminator: a full site brief, or a financing pre-approval.
+  kind: text("kind").notNull().default("brief"), // brief | financing
+  monthlyIncome: integer("monthly_income"), // EGP/month, from pre-approval
+  financeAmount: integer("finance_amount"), // EGP the customer wants to finance
+  employment: text("employment"), // Salaried | Business owner | Self-employed | Expat income
+  indicativeLimit: integer("indicative_limit"), // EGP, computed server-side
   message: text("message"),
   status: requestStatusEnum("status").notNull().default("new"),
   priority: text("priority").notNull().default("normal"), // low | normal | high

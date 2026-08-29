@@ -12,7 +12,7 @@ import { ClickableRow } from "@/components/requests/clickable-row";
 export default async function RequestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; owner?: string; source?: string; channel?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; owner?: string; kind?: string; source?: string; channel?: string; q?: string }>;
 }) {
   const user = await requireUser();
   if (!canAccessSection(user.role, "requests")) redirect("/denied");
@@ -31,6 +31,7 @@ export default async function RequestsPage({
   else if (sp.owner === "unassigned") conds.push(isNull(requests.assignedTo));
   else if (sp.owner) conds.push(eq(requests.assignedTo, Number(sp.owner)));
   if (sp.status) conds.push(eq(requests.status, sp.status as typeof requests.status.enumValues[number]));
+  if (sp.kind) conds.push(eq(requests.kind, sp.kind));
   if (sp.source) conds.push(eq(requests.source, sp.source));
   if (sp.channel) conds.push(eq(requests.channel, sp.channel));
   if (sp.q) {
@@ -85,7 +86,12 @@ export default async function RequestsPage({
                 {rows.map((r) => (
                   <ClickableRow key={r.id} href={`/requests/${r.id}`} className="border-b border-line last:border-0 hover:bg-sand/30">
                     <td className="px-5 py-3">
-                      <Link href={`/requests/${r.id}`} className="font-bold text-ink hover:text-olive">{r.ref}</Link>
+                      <div className="flex items-center gap-2">
+                        <Link href={`/requests/${r.id}`} className="font-bold text-ink hover:text-olive">{r.ref}</Link>
+                        {r.kind === "financing" && (
+                          <span className="rounded-full bg-olive/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-olive">Financing</span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted"><span className="capitalize">{r.source}</span> · {r.channel}</div>
                     </td>
                     <td className="px-3 py-3">
@@ -93,10 +99,19 @@ export default async function RequestsPage({
                       <div className="text-xs text-muted">{r.phone}</div>
                     </td>
                     <td className="px-3 py-3 text-sub">
-                      {r.propertyType} · {r.area}m²
-                      <div className="text-xs text-muted">{r.location}</div>
+                      {r.kind === "financing" ? (
+                        <>
+                          {r.indicativeLimit ? `EGP ${r.indicativeLimit.toLocaleString("en-US")}` : "—"}
+                          <div className="text-xs text-muted">{r.employment ?? "Pre-approval"}</div>
+                        </>
+                      ) : (
+                        <>
+                          {r.propertyType} · {r.area}m²
+                          <div className="text-xs text-muted">{r.location}</div>
+                        </>
+                      )}
                     </td>
-                    <td className="px-3 py-3 text-sub">{r.style ? styleName.get(r.style) ?? r.style : "—"}</td>
+                    <td className="px-3 py-3 text-sub">{r.kind === "financing" ? (r.budgetPlan ?? "—") : (r.style ? styleName.get(r.style) ?? r.style : "—")}</td>
                     <td className="px-3 py-3">
                       {r.assignedTo ? (
                         <span className="inline-flex items-center gap-2">

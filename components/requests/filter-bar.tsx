@@ -61,6 +61,12 @@ export function FilterBar({
         </select>
       )}
 
+      <select value={params.get("kind") ?? ""} onChange={(e) => setParam("kind", e.target.value)} className={sel}>
+        <option value="">All types</option>
+        <option value="brief">Briefs</option>
+        <option value="financing">Financing</option>
+      </select>
+
       <select value={params.get("source") ?? ""} onChange={(e) => setParam("source", e.target.value)} className={sel}>
         <option value="">All origins</option>
         <option value="website">Website</option>
@@ -75,7 +81,7 @@ export function FilterBar({
         ))}
       </select>
 
-      {(params.get("status") || params.get("owner") || params.get("source") || params.get("channel") || params.get("q")) && (
+      {(params.get("status") || params.get("owner") || params.get("kind") || params.get("source") || params.get("channel") || params.get("q")) && (
         <button onClick={() => router.push(pathname)} className="rounded-full px-3 py-2 text-sm font-semibold text-sub hover:text-ink">
           Clear
         </button>

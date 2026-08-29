@@ -29,6 +29,13 @@
       "when": 1787784517769,
       "tag": "0003_special_stone_men",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788001043153,
+      "tag": "0004_clever_shiva",
+      "breakpoints": true
     }
   ]
 }

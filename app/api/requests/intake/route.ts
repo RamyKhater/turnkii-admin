@@ -17,6 +17,10 @@ const schema = z.object({
   services: z.array(z.string().max(60)).max(20).optional(),
   style: z.string().trim().max(60).optional(),
   budgetPlan: z.string().trim().max(60).optional(),
+  kind: z.enum(["brief", "financing"]).optional(),
+  monthlyIncome: z.coerce.number().int().positive().max(100_000_000).optional(),
+  financeAmount: z.coerce.number().int().positive().max(100_000_000).optional(),
+  employment: z.string().trim().max(60).optional(),
   channel: z.string().trim().max(60).optional(),
   referrer: z.string().trim().max(500).optional(),
   utmSource: z.string().trim().max(120).optional(),
@@ -77,9 +81,17 @@ export async function POST(req: Request) {
   else if (d.fbclid) channel = "Paid social";
   else channel = d.channel || "Direct";
 
+  // Financing pre-approvals recompute the indicative limit server-side so the
+  // number in the admin is trustworthy (35% instalment-to-income over 48 months,
+  // capped at the EGP 60M partner-bank ceiling) rather than whatever the browser sent.
+  const isFinancing = d.kind === "financing";
+  const indicativeLimit = isFinancing && d.monthlyIncome
+    ? Math.min(60_000_000, Math.round((d.monthlyIncome * 0.35 * 48) / 50_000) * 50_000)
+    : undefined;
+
   const db = await getDb();
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(requests);
-  const ref = `TK-${2400 + n}`;
+  const ref = `${isFinancing ? "TF" : "TK"}-${2400 + n}`;
 
   const [row] = await db
     .insert(requests)
@@ -95,6 +107,11 @@ export async function POST(req: Request) {
       services: parsed.data.services ?? [],
       style: parsed.data.style,
       budgetPlan: parsed.data.budgetPlan,
+      kind: isFinancing ? "financing" : "brief",
+      monthlyIncome: d.monthlyIncome,
+      financeAmount: d.financeAmount,
+      employment: d.employment,
+      indicativeLimit,
       channel,
       referrer: parsed.data.referrer,
       utmSource: d.utmSource,
@@ -110,11 +127,16 @@ export async function POST(req: Request) {
     })
     .returning({ id: requests.id, ref: requests.ref });
 
-  await logActivity(null, "request.intake", "request", row.id, { source: "website" });
+  await logActivity(null, "request.intake", "request", row.id, { source: "website", kind: isFinancing ? "financing" : "brief" });
+  const egp = (v?: number) => (v ? `EGP ${v.toLocaleString("en-US")}` : "");
   await notifyRoles(["ops_manager", "admin"], {
     type: "request.new",
-    title: `New website request ${row.ref}`,
-    body: `${parsed.data.contactName} · ${parsed.data.location ?? ""}`.trim(),
+    title: isFinancing
+      ? `New financing pre-approval ${row.ref}`
+      : `New website request ${row.ref}`,
+    body: isFinancing
+      ? [parsed.data.contactName, indicativeLimit ? `up to ${egp(indicativeLimit)}` : "", d.employment ?? ""].filter(Boolean).join(" · ")
+      : `${parsed.data.contactName} · ${parsed.data.location ?? ""}`.trim(),
     entity: "request",
     entityId: row.id,
     href: `/requests/${row.id}`,

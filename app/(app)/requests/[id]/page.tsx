@@ -57,7 +57,25 @@ export default async function RequestDetailPage({
   const canAssign = can(user.role, "requests:assign");
   const canNote = can(user.role, "requests:note") && owns;
 
-  const facts: [string, React.ReactNode][] = [
+  const isFinancing = req.kind === "financing";
+  const egp = (v?: number | null) => (v ? `EGP ${v.toLocaleString("en-US")}` : "—");
+
+  const facts: [string, React.ReactNode][] = isFinancing ? [
+    ["Indicative limit", <span key="il" className="font-bold text-ink">{egp(req.indicativeLimit)}</span>],
+    ["Requested amount", egp(req.financeAmount)],
+    ["Monthly income", egp(req.monthlyIncome)],
+    ["Max monthly (35%)", req.monthlyIncome ? egp(Math.round(req.monthlyIncome * 0.35)) : "—"],
+    ["Employment", req.employment ?? "—"],
+    ["Plan of interest", req.budgetPlan ?? "—"],
+    ["Location", req.location ?? "—"],
+    ["Traffic source", req.channel ?? "—"],
+    ...((req.utmCampaign || req.utmSource || req.gclid || req.fbclid)
+      ? ([["Campaign",
+          [req.utmCampaign, req.utmSource, req.utmMedium].filter(Boolean).join(" · ") ||
+            (req.gclid ? "Google Ads click" : req.fbclid ? "Meta click" : "—")]] as [string, React.ReactNode][])
+      : []),
+    ["Origin", <span key="s" className="capitalize">{req.source}</span>],
+  ] : [
     ["Property", `${req.propertyType ?? "—"} · ${req.area ?? "?"}m² · ${req.units ?? 1} unit${req.units === 1 ? "" : "s"}`],
     ["Location", req.location ?? "—"],
     ["Style", req.style ? styleName.get(req.style) ?? req.style : "—"],
@@ -75,7 +93,7 @@ export default async function RequestDetailPage({
   return (
     <>
       <PageHeader
-        eyebrow="Request"
+        eyebrow={isFinancing ? "Financing pre-approval" : "Request"}
         title={`${req.ref}`}
         sub={`Received ${req.createdAt.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`}
         actions={<Link href="/requests" className="rounded-full border border-line px-4 py-2 text-sm font-semibold hover:border-ink">← All requests</Link>}
