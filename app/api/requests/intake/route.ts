@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
@@ -7,6 +8,7 @@ import { notifyRoles } from "@/lib/notifications";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { getFinancing } from "@/lib/financing/store";
 import { preApprovalLimit } from "@/lib/financing";
+import { dispatchRequestEmails } from "@/lib/email/requests";
 
 const schema = z.object({
   contactName: z.string().trim().min(1).max(120),
@@ -130,7 +132,13 @@ export async function POST(req: Request) {
       status: "new",
       source: "website",
     })
-    .returning({ id: requests.id, ref: requests.ref });
+    .returning();
+
+  // Email the ops/admin team and confirm to the submitter — after the response
+  // so a slow mail provider never delays or fails the public submission.
+  after(async () => {
+    try { await dispatchRequestEmails(row); } catch (e) { console.error("[intake] email dispatch failed", e); }
+  });
 
   await logActivity(null, "request.intake", "request", row.id, { source: "website", kind: isFinancing ? "financing" : "brief" });
   const egp = (v?: number) => (v ? `EGP ${v.toLocaleString("en-US")}` : "");

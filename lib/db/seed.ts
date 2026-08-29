@@ -35,6 +35,9 @@ const SETTINGS = [
   { key: "vertical.handovers", label: "Recent handovers", group: "vertical", enabled: true },
   { key: "sla.firstResponseHours", label: "First-response target (hours)", group: "sla", enabled: true, value: 24 },
   { key: "sla.resolveDays", label: "Resolution target (days)", group: "sla", enabled: true, value: 21 },
+  { key: "notify.newRequestEmail", label: "Email the team on new requests", group: "notify", enabled: true },
+  { key: "notify.customerReceipt", label: "Send confirmation email to the submitter", group: "notify", enabled: true },
+  { key: "notify.extraRecipients", label: "Extra alert recipients", group: "notify", enabled: true, value: "" },
 ];
 
 const DEMO_PASSWORD = "turnkii1234";

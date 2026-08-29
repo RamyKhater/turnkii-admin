@@ -7,7 +7,9 @@ import { PageHeader, Card } from "@/components/ui";
 import { Field, SubmitButton } from "@/components/form";
 import { VerticalToggle } from "@/components/settings/vertical-toggle";
 import { PublishButton } from "@/components/content/publish-button";
-import { updateSla } from "@/lib/settings/actions";
+import { updateSla, updateNotifications } from "@/lib/settings/actions";
+import { emailEnabled } from "@/lib/email/send";
+import { Textarea } from "@/components/form";
 
 export default async function SettingsPage() {
   await requireCap("settings:manage");
@@ -18,6 +20,10 @@ export default async function SettingsPage() {
   const verticals = rows.filter((r) => r.group === "vertical");
   const first = Number(rows.find((r) => r.key === "sla.firstResponseHours")?.value ?? 24);
   const resolve = Number(rows.find((r) => r.key === "sla.resolveDays")?.value ?? 21);
+  const teamAlert = rows.find((r) => r.key === "notify.newRequestEmail")?.enabled ?? true;
+  const customerReceipt = rows.find((r) => r.key === "notify.customerReceipt")?.enabled ?? true;
+  const extraRecipients = String(rows.find((r) => r.key === "notify.extraRecipients")?.value ?? "");
+  const emailReady = emailEnabled();
 
   return (
     <>
@@ -54,6 +60,35 @@ export default async function SettingsPage() {
             <div className="w-48"><Field label="First response (hours)" name="firstResponseHours" type="number" defaultValue={first} /></div>
             <div className="w-48"><Field label="Resolution (days)" name="resolveDays" type="number" defaultValue={resolve} /></div>
             <SubmitButton>Save SLAs</SubmitButton>
+          </form>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-sm font-bold">Email notifications</h2>
+          <p className="mt-1 text-sm text-sub">Who gets emailed when a new request or financing pre-approval comes in from the website.</p>
+          {!emailReady && (
+            <div className="mt-3 rounded-xl bg-warn/10 px-4 py-3 text-xs text-warn">
+              Email delivery isn’t configured yet. Set <code className="font-mono">RESEND_API_KEY</code> and <code className="font-mono">TK_EMAIL_FROM</code> (a verified sender, e.g. <span className="font-mono">Turnkii &lt;hello@turnkii.app&gt;</span>) in the admin environment. Until then these preferences save, but no email is sent.
+            </div>
+          )}
+          <form action={updateNotifications} className="mt-4 space-y-4">
+            <label className="flex items-start gap-3">
+              <input type="checkbox" name="newRequestEmail" defaultChecked={teamAlert} className="mt-1 h-4 w-4 accent-olive" />
+              <span>
+                <span className="text-sm font-semibold">Alert the team</span>
+                <span className="block text-xs text-muted">Email every admin &amp; ops manager (plus any extra recipients below) with the request details and a link to open it.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3">
+              <input type="checkbox" name="customerReceipt" defaultChecked={customerReceipt} className="mt-1 h-4 w-4 accent-olive" />
+              <span>
+                <span className="text-sm font-semibold">Confirm to the submitter</span>
+                <span className="block text-xs text-muted">Send the person who submitted a branded confirmation with their reference and what happens next (only if they gave an email).</span>
+              </span>
+            </label>
+            <Textarea label="Extra alert recipients" name="extraRecipients" defaultValue={extraRecipients} rows={2} />
+            <p className="-mt-2 text-xs text-muted">Comma-separated email addresses, on top of admins &amp; ops managers.</p>
+            <SubmitButton>Save notifications</SubmitButton>
           </form>
         </Card>
       </div>
