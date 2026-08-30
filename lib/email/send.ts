@@ -75,6 +75,11 @@ export async function sendEmail(m: EmailMessage): Promise<EmailResult> {
 
 const INK = "#12130E", CREAM = "#F6F3EC", LIME = "#D6F23C", SUB = "#5E5F52", LINE = "#E4E0D5";
 
+// White wordmark on transparent — sits on a dark chip in the header. Override
+// with TK_EMAIL_LOGO_URL if the logo moves. Falls back to the alt text when a
+// client blocks images.
+const LOGO_URL = process.env.TK_EMAIL_LOGO_URL || "https://turnkii.app/assets/turnkii-logo.png";
+
 /** Wrap body content in the Turnkii email shell. All styles inlined for clients. */
 export function layout(opts: { heading: string; intro?: string; body: string; preheader?: string; footnote?: string }): string {
   const { heading, intro, body, preheader, footnote } = opts;
@@ -85,7 +90,9 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;"
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
   <tr><td style="padding:4px 8px 16px;">
-    <span style="display:inline-block;background:${INK};color:${LIME};font-weight:800;font-size:15px;letter-spacing:.02em;padding:8px 12px;border-radius:8px;">Turnkii</span>
+    <span style="display:inline-block;background:${INK};padding:13px 18px;border-radius:10px;line-height:0;">
+      <img src="${LOGO_URL}" alt="Turnkii" height="22" style="height:22px;width:auto;display:block;border:0;" />
+    </span>
   </td></tr>
   <tr><td style="background:#ffffff;border:1px solid ${LINE};border-radius:16px;overflow:hidden;">
     <div style="padding:28px 28px 8px;">
