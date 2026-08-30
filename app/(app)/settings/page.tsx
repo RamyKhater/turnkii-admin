@@ -9,6 +9,7 @@ import { VerticalToggle } from "@/components/settings/vertical-toggle";
 import { PublishButton } from "@/components/content/publish-button";
 import { updateSla, updateNotifications } from "@/lib/settings/actions";
 import { emailEnabled } from "@/lib/email/send";
+import { mergeEmailCopy, type EmailCopy } from "@/lib/email/requests";
 import { Textarea } from "@/components/form";
 
 export default async function SettingsPage() {
@@ -24,6 +25,7 @@ export default async function SettingsPage() {
   const customerReceipt = rows.find((r) => r.key === "notify.customerReceipt")?.enabled ?? true;
   const extraRecipients = String(rows.find((r) => r.key === "notify.extraRecipients")?.value ?? "");
   const emailReady = emailEnabled();
+  const copy = mergeEmailCopy(rows.find((r) => r.key === "notify.emailCopy")?.value as Partial<EmailCopy> | undefined);
 
   return (
     <>
@@ -88,6 +90,21 @@ export default async function SettingsPage() {
             </label>
             <Textarea label="Extra alert recipients" name="extraRecipients" defaultValue={extraRecipients} rows={2} />
             <p className="-mt-2 text-xs text-muted">Comma-separated email addresses, on top of admins &amp; ops managers.</p>
+
+            <details className="rounded-xl border border-line bg-paper/60 px-4 py-3">
+              <summary className="cursor-pointer text-sm font-semibold">Email wording (subject &amp; heading)</summary>
+              <p className="mt-2 text-xs text-muted">
+                Used as both the subject line and the heading inside each email. Tokens get filled per request:
+                {" "}<code className="font-mono">{"{ref}"}</code> <code className="font-mono">{"{first}"}</code> <code className="font-mono">{"{name}"}</code> <code className="font-mono">{"{location}"}</code> <code className="font-mono">{"{limit}"}</code> <code className="font-mono">{"{plan}"}</code>. Leave a field blank to use the default.
+              </p>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <Field label="Team alert — brief" name="copyTeamBrief" defaultValue={copy.teamBrief} />
+                <Field label="Team alert — financing" name="copyTeamFinancing" defaultValue={copy.teamFinancing} />
+                <Field label="Customer confirmation — brief" name="copyCustomerBrief" defaultValue={copy.customerBrief} />
+                <Field label="Customer confirmation — financing" name="copyCustomerFinancing" defaultValue={copy.customerFinancing} />
+              </div>
+            </details>
+
             <SubmitButton>Save notifications</SubmitButton>
           </form>
         </Card>

@@ -7,6 +7,7 @@ import { siteSettings } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
 import { triggerSiteRebuild } from "@/lib/publish/trigger";
+import { EMAIL_COPY_DEFAULTS } from "@/lib/email/requests";
 
 export async function setVertical(key: string, enabled: boolean) {
   const user = await assertCap("settings:manage");
@@ -48,6 +49,19 @@ export async function updateNotifications(formData: FormData) {
   await put("notify.newRequestEmail", "Email the team on new requests", teamAlert);
   await put("notify.customerReceipt", "Send confirmation email to the submitter", customerReceipt);
   await put("notify.extraRecipients", "Extra alert recipients", true, extra.join(", "));
+
+  // Editable subject/heading copy — fall back to defaults when a field is blank.
+  const str = (k: string, dflt: string) => {
+    const v = String(formData.get(k) ?? "").trim();
+    return v || dflt;
+  };
+  const copy = {
+    teamBrief: str("copyTeamBrief", EMAIL_COPY_DEFAULTS.teamBrief),
+    teamFinancing: str("copyTeamFinancing", EMAIL_COPY_DEFAULTS.teamFinancing),
+    customerBrief: str("copyCustomerBrief", EMAIL_COPY_DEFAULTS.customerBrief),
+    customerFinancing: str("copyCustomerFinancing", EMAIL_COPY_DEFAULTS.customerFinancing),
+  };
+  await put("notify.emailCopy", "Email subject/heading copy", true, copy);
   await logActivity(user.id, "settings.notifications", "setting", "notify", { teamAlert, customerReceipt, extra: extra.length });
   revalidatePath("/settings");
 }

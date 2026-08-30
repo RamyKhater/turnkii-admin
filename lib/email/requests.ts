@@ -7,8 +7,43 @@ type RequestRow = typeof requests.$inferSelect;
 
 const egp = (v: number | null | undefined) => (v ? `EGP ${v.toLocaleString("en-US")}` : "");
 
+// Editable subject/heading copy. Admins set these in Settings → Email
+// notifications; missing keys fall back to these defaults. Tokens are filled
+// per request. The one string is used for both the email subject and the
+// in-email heading, so what's set is exactly what's sent.
+export type EmailCopy = {
+  teamBrief: string;
+  teamFinancing: string;
+  customerBrief: string;
+  customerFinancing: string;
+};
+
+export const EMAIL_COPY_DEFAULTS: EmailCopy = {
+  teamBrief: "New website request · {ref}",
+  teamFinancing: "New financing pre-approval · {ref}",
+  customerBrief: "Thanks {first} — your brief is in",
+  customerFinancing: "We've received your pre-approval request, {first}",
+};
+
+export function mergeEmailCopy(over: Partial<EmailCopy> | null | undefined): EmailCopy {
+  return { ...EMAIL_COPY_DEFAULTS, ...(over ?? {}) };
+}
+
+/** Fill {ref} {first} {name} {location} {limit} {plan} in a copy string. */
+export function fillTokens(s: string, req: RequestRow): string {
+  const first = (req.contactName ?? "").split(" ")[0] || "there";
+  return String(s ?? "")
+    .replaceAll("{ref}", req.ref)
+    .replaceAll("{first}", first)
+    .replaceAll("{name}", req.contactName ?? "")
+    .replaceAll("{location}", req.location ?? "")
+    .replaceAll("{limit}", egp(req.indicativeLimit))
+    .replaceAll("{plan}", req.budgetPlan ?? "")
+    .replace(/\s{2,}/g, " ").trim();
+}
+
 /** Ops/admin alert for a new incoming request or pre-approval. */
-export function adminRequestEmail(req: RequestRow): { subject: string; html: string } {
+export function adminRequestEmail(req: RequestRow, title: string): { subject: string; html: string } {
   const fin = req.kind === "financing";
   const rows: [string, string][] = [
     ["Contact", req.contactName ?? ""],
@@ -35,20 +70,18 @@ export function adminRequestEmail(req: RequestRow): { subject: string; html: str
   rows.push(["Traffic source", req.channel ?? ""]);
   if (req.message) rows.push(["Message", req.message]);
 
-  const heading = fin ? `New financing pre-approval · ${req.ref}` : `New website request · ${req.ref}`;
   const html = layout({
-    heading,
+    heading: title,
     intro: `${esc(req.contactName ?? "Someone")} just submitted through the website. Respond within your SLA to keep the lead warm.`,
     preheader: `${req.contactName ?? ""} · ${fin ? egp(req.indicativeLimit) || "pre-approval" : req.location ?? ""}`,
     body: facts(rows) + button("Open in the admin", `${appUrl()}/requests/${req.id}`),
   });
-  return { subject: heading, html };
+  return { subject: title, html };
 }
 
 /** Confirmation to the person who submitted — the "user receiving" side. */
-export function customerRequestEmail(req: RequestRow): { subject: string; html: string } {
+export function customerRequestEmail(req: RequestRow, title: string): { subject: string; html: string } {
   const fin = req.kind === "financing";
-  const first = (req.contactName ?? "").split(" ")[0] || "there";
   let body: string;
   if (fin) {
     body =
@@ -59,16 +92,15 @@ export function customerRequestEmail(req: RequestRow): { subject: string; html: 
       `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">We've got your brief and a Turnkii coordinator will call you on <b>${esc(req.phone ?? "your mobile")}</b> within 24 hours to confirm your free site survey.</p>` +
       `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">A surveyor and a designer attend for about 45 minutes, and a written scope with an EGP range follows within three working days.</p>`;
   }
-  const heading = fin ? "We've received your pre-approval request" : "Thanks — your brief is in";
   const html = layout({
-    heading: `${heading}, ${first}.`,
+    heading: title,
     body:
       body +
       `<p style="margin:14px 0 0;font-size:13px;color:#8A8A79;line-height:1.5;">Your reference is <b>${esc(req.ref)}</b>. Just reply to this email if anything changes.</p>`,
     preheader: fin ? "Your indicative financing limit and next steps." : "We'll call within 24 hours to book your survey.",
     footnote: `Reference ${esc(req.ref)}`,
   });
-  return { subject: `${heading} (${req.ref})`, html };
+  return { subject: title, html };
 }
 
 const isOn = (rows: { key: string; enabled: boolean }[], key: string, dflt: boolean) => {
@@ -84,6 +116,8 @@ const isOn = (rows: { key: string; enabled: boolean }[], key: string, dflt: bool
 export async function dispatchRequestEmails(req: RequestRow): Promise<void> {
   const db = await getDb();
   const settings = await db.select().from(siteSettings);
+  const fin = req.kind === "financing";
+  const copy = mergeEmailCopy(settings.find((s) => s.key === "notify.emailCopy")?.value as Partial<EmailCopy> | undefined);
 
   // 1) ops/admin alert
   if (isOn(settings, "notify.newRequestEmail", true)) {
@@ -93,14 +127,16 @@ export async function dispatchRequestEmails(req: RequestRow): Promise<void> {
       .split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
     const to = Array.from(new Set([...staffEmails, ...extra]));
     if (to.length) {
-      const { subject, html } = adminRequestEmail(req);
+      const title = fillTokens(fin ? copy.teamFinancing : copy.teamBrief, req);
+      const { subject, html } = adminRequestEmail(req, title);
       await sendEmail({ to, subject, html, replyTo: req.email ?? undefined });
     }
   }
 
   // 2) confirmation to the submitter
   if (req.email && isOn(settings, "notify.customerReceipt", true)) {
-    const { subject, html } = customerRequestEmail(req);
+    const title = fillTokens(fin ? copy.customerFinancing : copy.customerBrief, req);
+    const { subject, html } = customerRequestEmail(req, title);
     await sendEmail({ to: req.email, subject, html });
   }
 }
