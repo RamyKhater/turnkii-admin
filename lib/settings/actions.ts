@@ -8,6 +8,7 @@ import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
 import { triggerSiteRebuild } from "@/lib/publish/trigger";
 import { EMAIL_COPY_DEFAULTS } from "@/lib/email/requests";
+import { WA_DEFAULTS } from "@/lib/whatsapp/requests";
 
 export async function setVertical(key: string, enabled: boolean) {
   const user = await assertCap("settings:manage");
@@ -66,6 +67,31 @@ export async function updateNotifications(formData: FormData) {
     customerService: str("copyCustomerService", EMAIL_COPY_DEFAULTS.customerService),
   };
   await put("notify.emailCopy", "Email subject/heading copy", true, copy);
-  await logActivity(user.id, "settings.notifications", "setting", "notify", { teamAlert, customerReceipt, extra: extra.length });
+
+  await logActivity(user.id, "settings.notifications", "setting", "notify", { teamAlert, customerReceipt, accountWelcome, extra: extra.length });
+  revalidatePath("/settings");
+}
+
+export async function updateWhatsapp(formData: FormData) {
+  const user = await assertCap("settings:manage");
+  const db = await getDb();
+  const now = new Date();
+  const put = (key: string, label: string, enabled: boolean, value: unknown = null) =>
+    db.insert(siteSettings)
+      .values({ key, label, group: "notify", enabled, value, updatedAt: now })
+      .onConflictDoUpdate({ target: siteSettings.key, set: { enabled, value, updatedAt: now } });
+  const str = (k: string, dflt: string) => (String(formData.get(k) ?? "").trim() || dflt);
+
+  const waCustomer = formData.get("waCustomer") != null;
+  const waTeam = formData.get("waTeam") != null;
+  const waRecipients = String(formData.get("waRecipients") ?? "")
+    .split(/[,;\s]+/).map((s) => s.replace(/[^\d+]/g, "")).filter((s) => s.replace(/\D/g, "").length >= 8);
+  await put("notify.waCustomer", "WhatsApp confirmation to the submitter", waCustomer);
+  await put("notify.waTeam", "WhatsApp alert to the team", waTeam);
+  await put("notify.waCustomerTemplate", "WhatsApp customer template name", true, str("waCustomerTemplate", WA_DEFAULTS.customerTemplate));
+  await put("notify.waTeamTemplate", "WhatsApp team template name", true, str("waTeamTemplate", WA_DEFAULTS.teamTemplate));
+  await put("notify.waLanguage", "WhatsApp template language", true, str("waLanguage", WA_DEFAULTS.language));
+  await put("notify.waRecipients", "WhatsApp team recipients", true, waRecipients.join(", "));
+  await logActivity(user.id, "settings.whatsapp", "setting", "notify", { waCustomer, waTeam, recipients: waRecipients.length });
   revalidatePath("/settings");
 }

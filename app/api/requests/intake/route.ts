@@ -9,6 +9,7 @@ import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { getFinancing } from "@/lib/financing/store";
 import { preApprovalLimit } from "@/lib/financing";
 import { dispatchRequestEmails } from "@/lib/email/requests";
+import { dispatchRequestWhatsApp } from "@/lib/whatsapp/requests";
 
 const schema = z.object({
   contactName: z.string().trim().min(1).max(120),
@@ -141,6 +142,7 @@ export async function POST(req: Request) {
   // so a slow mail provider never delays or fails the public submission.
   after(async () => {
     try { await dispatchRequestEmails(row); } catch (e) { console.error("[intake] email dispatch failed", e); }
+    try { await dispatchRequestWhatsApp(row); } catch (e) { console.error("[intake] whatsapp dispatch failed", e); }
   });
 
   await logActivity(null, "request.intake", "request", row.id, { source: "website", kind });
