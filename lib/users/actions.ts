@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
@@ -7,6 +8,7 @@ import { users, type Role } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { hashPassword } from "@/lib/auth/password";
 import { logActivity } from "@/lib/activity";
+import { sendAccountWelcome } from "@/lib/email/account";
 
 const ROLE_VALUES = ["admin", "product_manager", "ops_manager", "agent", "content_editor"] as const;
 
@@ -40,6 +42,11 @@ export async function createUser(_prev: CreateUserState, formData: FormData): Pr
     passwordHash: hashPassword(parsed.data.password),
   }).returning();
   await logActivity(admin.id, "user.create", "user", row.id, { role: parsed.data.role });
+  // Welcome the new teammate by email (after the response; never blocks the create).
+  after(async () => {
+    try { await sendAccountWelcome({ name: row.name, email: row.email, role: row.role }); }
+    catch (e) { console.error("[users] welcome email failed", e); }
+  });
   revalidatePath("/users");
   return { ok: true };
 }

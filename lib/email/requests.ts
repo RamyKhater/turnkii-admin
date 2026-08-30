@@ -14,15 +14,19 @@ const egp = (v: number | null | undefined) => (v ? `EGP ${v.toLocaleString("en-U
 export type EmailCopy = {
   teamBrief: string;
   teamFinancing: string;
+  teamService: string;
   customerBrief: string;
   customerFinancing: string;
+  customerService: string;
 };
 
 export const EMAIL_COPY_DEFAULTS: EmailCopy = {
   teamBrief: "New website request · {ref}",
   teamFinancing: "New financing pre-approval · {ref}",
+  teamService: "New service request · {ref}",
   customerBrief: "Thanks {first} — your brief is in",
   customerFinancing: "We've received your pre-approval request, {first}",
+  customerService: "Thanks {first} — we've got your service request",
 };
 
 export function mergeEmailCopy(over: Partial<EmailCopy> | null | undefined): EmailCopy {
@@ -45,6 +49,8 @@ export function fillTokens(s: string, req: RequestRow): string {
 /** Ops/admin alert for a new incoming request or pre-approval. */
 export function adminRequestEmail(req: RequestRow, title: string): { subject: string; html: string } {
   const fin = req.kind === "financing";
+  const svc = req.kind === "service";
+  const property = [req.propertyType, req.area ? `${req.area} m²` : "", req.units ? `${req.units} unit${req.units === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ");
   const rows: [string, string][] = [
     ["Contact", req.contactName ?? ""],
     ["Phone", req.phone ?? ""],
@@ -58,9 +64,15 @@ export function adminRequestEmail(req: RequestRow, title: string): { subject: st
       ["Employment", req.employment ?? ""],
       ["Plan of interest", req.budgetPlan ?? ""],
     );
+  } else if (svc) {
+    rows.push(
+      ["Services", (req.services ?? []).join(", ")],
+      ["Property", property],
+      ["Location", req.location ?? ""],
+    );
   } else {
     rows.push(
-      ["Property", [req.propertyType, req.area ? `${req.area} m²` : "", req.units ? `${req.units} unit${req.units === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ")],
+      ["Property", property],
       ["Location", req.location ?? ""],
       ["Style", req.style ?? ""],
       ["Services", (req.services ?? []).join(", ")],
@@ -82,11 +94,16 @@ export function adminRequestEmail(req: RequestRow, title: string): { subject: st
 /** Confirmation to the person who submitted — the "user receiving" side. */
 export function customerRequestEmail(req: RequestRow, title: string): { subject: string; html: string } {
   const fin = req.kind === "financing";
+  const svc = req.kind === "service";
   let body: string;
   if (fin) {
     body =
       (req.indicativeLimit ? `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Based on the income you shared, your <b>indicative limit is ${esc(egp(req.indicativeLimit))}</b>. This is a soft estimate — it doesn't affect your credit file.</p>` : "") +
       `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Our team confirms the final limit with our partner bank once your scope is priced, usually within one working day of your free site survey. We'll call you on <b>${esc(req.phone ?? "your mobile")}</b> to arrange it.</p>`;
+  } else if (svc) {
+    const svcList = (req.services ?? []).join(", ");
+    body =
+      `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">We've received your request${svcList ? ` for <b>${esc(svcList)}</b>` : ""} and a Turnkii coordinator will call you on <b>${esc(req.phone ?? "your mobile")}</b> within one working day to scope it and share timing.</p>`;
   } else {
     body =
       `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">We've got your brief and a Turnkii coordinator will call you on <b>${esc(req.phone ?? "your mobile")}</b> within 24 hours to confirm your free site survey.</p>` +
@@ -116,8 +133,10 @@ const isOn = (rows: { key: string; enabled: boolean }[], key: string, dflt: bool
 export async function dispatchRequestEmails(req: RequestRow): Promise<void> {
   const db = await getDb();
   const settings = await db.select().from(siteSettings);
-  const fin = req.kind === "financing";
+  const kind = req.kind === "financing" ? "financing" : req.kind === "service" ? "service" : "brief";
   const copy = mergeEmailCopy(settings.find((s) => s.key === "notify.emailCopy")?.value as Partial<EmailCopy> | undefined);
+  const teamTemplate = kind === "financing" ? copy.teamFinancing : kind === "service" ? copy.teamService : copy.teamBrief;
+  const customerTemplate = kind === "financing" ? copy.customerFinancing : kind === "service" ? copy.customerService : copy.customerBrief;
 
   // 1) ops/admin alert
   if (isOn(settings, "notify.newRequestEmail", true)) {
@@ -127,16 +146,14 @@ export async function dispatchRequestEmails(req: RequestRow): Promise<void> {
       .split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
     const to = Array.from(new Set([...staffEmails, ...extra]));
     if (to.length) {
-      const title = fillTokens(fin ? copy.teamFinancing : copy.teamBrief, req);
-      const { subject, html } = adminRequestEmail(req, title);
+      const { subject, html } = adminRequestEmail(req, fillTokens(teamTemplate, req));
       await sendEmail({ to, subject, html, replyTo: req.email ?? undefined });
     }
   }
 
   // 2) confirmation to the submitter
   if (req.email && isOn(settings, "notify.customerReceipt", true)) {
-    const title = fillTokens(fin ? copy.customerFinancing : copy.customerBrief, req);
-    const { subject, html } = customerRequestEmail(req, title);
+    const { subject, html } = customerRequestEmail(req, fillTokens(customerTemplate, req));
     await sendEmail({ to: req.email, subject, html });
   }
 }

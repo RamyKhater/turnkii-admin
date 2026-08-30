@@ -38,6 +38,7 @@ export async function updateNotifications(formData: FormData) {
   const db = await getDb();
   const teamAlert = formData.get("newRequestEmail") != null;
   const customerReceipt = formData.get("customerReceipt") != null;
+  const accountWelcome = formData.get("accountWelcome") != null;
   const extra = String(formData.get("extraRecipients") ?? "")
     .split(/[,;\s]+/).map((s) => s.trim()).filter((s) => EMAIL_RE.test(s));
   const now = new Date();
@@ -48,6 +49,7 @@ export async function updateNotifications(formData: FormData) {
       .onConflictDoUpdate({ target: siteSettings.key, set: { enabled, value, updatedAt: now } });
   await put("notify.newRequestEmail", "Email the team on new requests", teamAlert);
   await put("notify.customerReceipt", "Send confirmation email to the submitter", customerReceipt);
+  await put("notify.accountWelcome", "Welcome email on new staff accounts", accountWelcome);
   await put("notify.extraRecipients", "Extra alert recipients", true, extra.join(", "));
 
   // Editable subject/heading copy — fall back to defaults when a field is blank.
@@ -58,8 +60,10 @@ export async function updateNotifications(formData: FormData) {
   const copy = {
     teamBrief: str("copyTeamBrief", EMAIL_COPY_DEFAULTS.teamBrief),
     teamFinancing: str("copyTeamFinancing", EMAIL_COPY_DEFAULTS.teamFinancing),
+    teamService: str("copyTeamService", EMAIL_COPY_DEFAULTS.teamService),
     customerBrief: str("copyCustomerBrief", EMAIL_COPY_DEFAULTS.customerBrief),
     customerFinancing: str("copyCustomerFinancing", EMAIL_COPY_DEFAULTS.customerFinancing),
+    customerService: str("copyCustomerService", EMAIL_COPY_DEFAULTS.customerService),
   };
   await put("notify.emailCopy", "Email subject/heading copy", true, copy);
   await logActivity(user.id, "settings.notifications", "setting", "notify", { teamAlert, customerReceipt, extra: extra.length });

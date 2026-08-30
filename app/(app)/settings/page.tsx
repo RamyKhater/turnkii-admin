@@ -23,6 +23,7 @@ export default async function SettingsPage() {
   const resolve = Number(rows.find((r) => r.key === "sla.resolveDays")?.value ?? 21);
   const teamAlert = rows.find((r) => r.key === "notify.newRequestEmail")?.enabled ?? true;
   const customerReceipt = rows.find((r) => r.key === "notify.customerReceipt")?.enabled ?? true;
+  const accountWelcome = rows.find((r) => r.key === "notify.accountWelcome")?.enabled ?? true;
   const extraRecipients = String(rows.find((r) => r.key === "notify.extraRecipients")?.value ?? "");
   const emailReady = emailEnabled();
   const copy = mergeEmailCopy(rows.find((r) => r.key === "notify.emailCopy")?.value as Partial<EmailCopy> | undefined);
@@ -85,7 +86,14 @@ export default async function SettingsPage() {
               <input type="checkbox" name="customerReceipt" defaultChecked={customerReceipt} className="mt-1 h-4 w-4 accent-olive" />
               <span>
                 <span className="text-sm font-semibold">Confirm to the submitter</span>
-                <span className="block text-xs text-muted">Send the person who submitted a branded confirmation with their reference and what happens next (only if they gave an email).</span>
+                <span className="block text-xs text-muted">Send the person who submitted a branded confirmation with their reference and what happens next (only if they gave an email). Covers briefs, financing pre-approvals and service requests.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3">
+              <input type="checkbox" name="accountWelcome" defaultChecked={accountWelcome} className="mt-1 h-4 w-4 accent-olive" />
+              <span>
+                <span className="text-sm font-semibold">Welcome new teammates</span>
+                <span className="block text-xs text-muted">Email a branded welcome with the sign-in link when a new staff account is created in Team.</span>
               </span>
             </label>
             <Textarea label="Extra alert recipients" name="extraRecipients" defaultValue={extraRecipients} rows={2} />
@@ -100,8 +108,10 @@ export default async function SettingsPage() {
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 <Field label="Team alert — brief" name="copyTeamBrief" defaultValue={copy.teamBrief} />
                 <Field label="Team alert — financing" name="copyTeamFinancing" defaultValue={copy.teamFinancing} />
+                <Field label="Team alert — service" name="copyTeamService" defaultValue={copy.teamService} />
                 <Field label="Customer confirmation — brief" name="copyCustomerBrief" defaultValue={copy.customerBrief} />
                 <Field label="Customer confirmation — financing" name="copyCustomerFinancing" defaultValue={copy.customerFinancing} />
+                <Field label="Customer confirmation — service" name="copyCustomerService" defaultValue={copy.customerService} />
               </div>
             </details>
 

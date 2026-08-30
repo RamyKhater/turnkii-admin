@@ -21,7 +21,7 @@ const schema = z.object({
   services: z.array(z.string().max(60)).max(20).optional(),
   style: z.string().trim().max(60).optional(),
   budgetPlan: z.string().trim().max(60).optional(),
-  kind: z.enum(["brief", "financing"]).optional(),
+  kind: z.enum(["brief", "financing", "service"]).optional(),
   monthlyIncome: z.coerce.number().int().positive().max(100_000_000).optional(),
   financeAmount: z.coerce.number().int().positive().max(100_000_000).optional(),
   employment: z.string().trim().max(60).optional(),
@@ -85,11 +85,14 @@ export async function POST(req: Request) {
   else if (d.fbclid) channel = "Paid social";
   else channel = d.channel || "Direct";
 
+  const kind = d.kind ?? "brief";
+  const isFinancing = kind === "financing";
+  const isService = kind === "service";
+
   // Financing pre-approvals recompute the indicative limit server-side so the
   // number in the admin is trustworthy — using the SAME published affordability
   // rule the site shows (income share × horizon, capped at the bank ceiling),
   // not whatever the browser sent.
-  const isFinancing = d.kind === "financing";
   let indicativeLimit: number | undefined;
   if (isFinancing && d.monthlyIncome) {
     const { config } = await getFinancing();
@@ -98,7 +101,7 @@ export async function POST(req: Request) {
 
   const db = await getDb();
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(requests);
-  const ref = `${isFinancing ? "TF" : "TK"}-${2400 + n}`;
+  const ref = `${isFinancing ? "TF" : isService ? "TS" : "TK"}-${2400 + n}`;
 
   const [row] = await db
     .insert(requests)
@@ -114,7 +117,7 @@ export async function POST(req: Request) {
       services: parsed.data.services ?? [],
       style: parsed.data.style,
       budgetPlan: parsed.data.budgetPlan,
-      kind: isFinancing ? "financing" : "brief",
+      kind,
       monthlyIncome: d.monthlyIncome,
       financeAmount: d.financeAmount,
       employment: d.employment,
@@ -140,16 +143,22 @@ export async function POST(req: Request) {
     try { await dispatchRequestEmails(row); } catch (e) { console.error("[intake] email dispatch failed", e); }
   });
 
-  await logActivity(null, "request.intake", "request", row.id, { source: "website", kind: isFinancing ? "financing" : "brief" });
+  await logActivity(null, "request.intake", "request", row.id, { source: "website", kind });
   const egp = (v?: number) => (v ? `EGP ${v.toLocaleString("en-US")}` : "");
+  const notifTitle = isFinancing
+    ? `New financing pre-approval ${row.ref}`
+    : isService
+      ? `New service request ${row.ref}`
+      : `New website request ${row.ref}`;
+  const notifBody = isFinancing
+    ? [parsed.data.contactName, indicativeLimit ? `up to ${egp(indicativeLimit)}` : "", d.employment ?? ""].filter(Boolean).join(" · ")
+    : isService
+      ? [parsed.data.contactName, (parsed.data.services ?? []).join(", "), parsed.data.location ?? ""].filter(Boolean).join(" · ")
+      : `${parsed.data.contactName} · ${parsed.data.location ?? ""}`.trim();
   await notifyRoles(["ops_manager", "admin"], {
     type: "request.new",
-    title: isFinancing
-      ? `New financing pre-approval ${row.ref}`
-      : `New website request ${row.ref}`,
-    body: isFinancing
-      ? [parsed.data.contactName, indicativeLimit ? `up to ${egp(indicativeLimit)}` : "", d.employment ?? ""].filter(Boolean).join(" · ")
-      : `${parsed.data.contactName} · ${parsed.data.location ?? ""}`.trim(),
+    title: notifTitle,
+    body: notifBody,
     entity: "request",
     entityId: row.id,
     href: `/requests/${row.id}`,
