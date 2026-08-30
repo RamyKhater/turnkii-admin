@@ -41,12 +41,38 @@ export function RateCardEditor({ initial, defaults, published, updatedAtISO }:
   const field = (label: string, k: keyof RateCard, unit: string, step: number, note?: string): Field =>
     ({ label, value: card[k] as number, unit, step, note, set: (v) => flat(k, v) });
 
+  // Post-handover care mixes flat numbers with nested rate maps, so it needs its
+  // own field builders (the generic nestedFields would try to render the maps).
+  type CareMap = "cleaningScopes" | "maintenanceRates";
+  const careVal = (k: string) => (card.care as unknown as Record<string, number>)[k];
+  const setCareNum = (k: string, v: number) => {
+    setCard((c) => ({ ...c, care: { ...c.care, [k]: v } })); setDirty(true); setSaved(false);
+  };
+  const setCareMap = (m: CareMap, key: string, v: number) => {
+    setCard((c) => ({ ...c, care: { ...c.care, [m]: { ...(c.care[m]), [key]: v } } })); setDirty(true); setSaved(false);
+  };
+  const careField = (k: string, label: string, unit: string, step: number, note?: string): Field =>
+    ({ label, value: careVal(k), unit, step, note, set: (v) => setCareNum(k, v) });
+  const careMapFields = (m: CareMap, unit: string, step: number): Field[] =>
+    Object.keys(card.care[m]).map((k) => ({ label: k, value: card.care[m][k], unit, step, set: (v: number) => setCareMap(m, k, v) }));
+
   const groups: { title: string; hint: string; fields: Field[] }[] = [
     { title: "Style rates", hint: "Finishing, EGP per m² at Signature spec", fields: nestedFields("styleRate", STYLE_NAMES, "/ m²", 100) },
     { title: "Furniture packages", hint: "Multiplier applied to the style rate", fields: nestedFields("packageFactor", PKG_NAMES, "×", 0.01, (k, v) => "adds " + full((card.styleRate[testStyle] || 0) * v) + " / m²") },
     { title: "Add-on services", hint: "EGP per m², on top of finishing", fields: nestedFields("serviceRate", SVC_NAMES, "/ m²", 10) },
     { title: "Property type factor", hint: "Adjusts the finishing rate by unit type", fields: nestedFields("propertyFactor", null, "×", 0.01) },
-    { title: "Post-handover care", hint: "Deep cleaning and maintenance visits", fields: nestedFields("care", { cleaningPerM2: "Deep clean", cleaningMin: "Minimum visit", maintenanceCallout: "Maintenance call-out", planDiscount: "Yearly plan discount" }, "", 5) },
+    { title: "Deep cleaning", hint: "Base call-out + per room; the /m² pair still powers the homepage estimate", fields: [
+      careField("cleaningBase", "Base call-out", "EGP", 50),
+      careField("cleaningPerRoom", "Per room", "EGP", 25),
+      careField("cleaningPerM2", "Area estimate", "/ m²", 5),
+      careField("cleaningMin", "Minimum visit", "EGP", 50),
+    ] },
+    { title: "Cleaning intensity by scope", hint: "Multiplier on the per-room price for each “what to clean”", fields: careMapFields("cleaningScopes", "×", 0.05) },
+    { title: "Maintenance call-outs", hint: "Price per repair sub-type (parts quoted on site)", fields: careMapFields("maintenanceRates", "EGP", 50) },
+    { title: "Care plan", hint: "Fallback call-out and yearly-plan discount", fields: [
+      careField("maintenanceCallout", "Default call-out", "EGP", 50, "used when a sub-type has no rate"),
+      careField("planDiscount", "Yearly plan discount", "%", 1),
+    ] },
     { title: "Programme", hint: "Weeks added per service", fields: [field("Mobilisation", "baseWeeks", "wks", 1), ...nestedFields("serviceWeeks", WEEK_NAMES, "wks", 1)] },
     { title: "Commercials", hint: "Range width, financing and discounts", fields: [
       field("Minimum job value", "minJob", "EGP", 10000, "floor per unit"),

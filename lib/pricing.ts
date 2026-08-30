@@ -17,7 +17,12 @@ export type RateCard = {
   serviceRate: Record<string, number>;
   propertyFactor: Record<string, number>;
   serviceWeeks: Record<string, number>;
-  care: { cleaningPerM2: number; cleaningMin: number; maintenanceCallout: number; planDiscount: number };
+  care: {
+    cleaningPerM2: number; cleaningMin: number; maintenanceCallout: number; planDiscount: number;
+    cleaningBase: number; cleaningPerRoom: number;
+    cleaningScopes: Record<string, number>;
+    maintenanceRates: Record<string, number>;
+  };
   baseWeeks: number;
 };
 
@@ -38,7 +43,12 @@ export const RATE_CARD_DEFAULTS: RateCard = {
     "Short-stay rental": 0.96, "Commercial / hospitality": 1.12,
   },
   serviceWeeks: { finishing: 6, furnishing: 3, ffe: 4, kitchen: 3, hvac: 2, shutters: 1, outdoor: 2 },
-  care: { cleaningPerM2: 55, cleaningMin: 1800, maintenanceCallout: 750, planDiscount: 12 },
+  care: {
+    cleaningPerM2: 55, cleaningMin: 1800, maintenanceCallout: 750, planDiscount: 12,
+    cleaningBase: 600, cleaningPerRoom: 450,
+    cleaningScopes: { "Whole unit": 1, "Kitchen & bathrooms": 0.7, "Post-works clean": 1.35, "Windows & terrace": 0.55 },
+    maintenanceRates: { "AC service": 900, "Plumbing": 750, "Electrics": 800, "Joinery": 950, "Snag fix": 700, "Not sure yet": 750 },
+  },
   baseWeeks: 3,
 };
 
