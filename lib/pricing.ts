@@ -47,7 +47,16 @@ export const RATE_CARD_DEFAULTS: RateCard = {
     cleaningPerM2: 55, cleaningMin: 1800, maintenanceCallout: 750, planDiscount: 12,
     cleaningBase: 600, cleaningPerRoom: 450,
     cleaningScopes: { "Whole unit": 1, "Kitchen & bathrooms": 0.7, "Post-works clean": 1.35, "Windows & terrace": 0.55 },
-    maintenanceRates: { "AC service": 900, "Plumbing": 750, "Electrics": 800, "Joinery": 950, "Snag fix": 700, "Not sure yet": 750 },
+    // Per maintenance sub-service (× number of units). Keyed "Category · Sub".
+    maintenanceRates: {
+      "AC service · Installation": 1200, "AC service · Cleaning": 350, "AC service · Gas refill": 600, "AC service · Repair & diagnosis": 500,
+      "Plumbing · Leak repair": 500, "Plumbing · Fixture install": 700, "Plumbing · Blockage clear": 450, "Plumbing · Inspection": 800,
+      "Electrics · Point/wiring install": 450, "Electrics · Fault diagnosis": 500, "Electrics · Fixture install": 400, "Electrics · Panel & breakers": 900,
+      "Joinery · Repair & adjust": 600, "Joinery · New unit": 1500, "Joinery · Hinges & handles": 300,
+      "Appliances · Install & mount": 500, "Appliances · Diagnose & repair": 550,
+      "Snag fix · General snag": 700,
+      "Not sure yet · Assessment visit": 750,
+    },
   },
   baseWeeks: 3,
 };
