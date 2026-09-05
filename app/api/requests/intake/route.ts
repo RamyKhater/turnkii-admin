@@ -35,6 +35,7 @@ const schema = z.object({
   utmContent: z.string().trim().max(200).optional(),
   gclid: z.string().trim().max(400).optional(),
   fbclid: z.string().trim().max(400).optional(),
+  referredByCode: z.string().trim().max(40).optional(),
   message: z.string().trim().max(4000).optional(),
 });
 
@@ -132,6 +133,7 @@ export async function POST(req: Request) {
       utmContent: d.utmContent,
       gclid: d.gclid,
       fbclid: d.fbclid,
+      referredByCode: d.referredByCode || null,
       message: parsed.data.message,
       status: "new",
       source: "website",

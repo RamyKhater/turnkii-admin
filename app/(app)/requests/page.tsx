@@ -36,7 +36,7 @@ export default async function RequestsPage({
   if (sp.channel) conds.push(eq(requests.channel, sp.channel));
   if (sp.q) {
     const like = `%${sp.q}%`;
-    conds.push(or(ilike(requests.ref, like), ilike(requests.contactName, like), ilike(requests.location, like))!);
+    conds.push(or(ilike(requests.ref, like), ilike(requests.contactName, like), ilike(requests.location, like), ilike(requests.referredByCode, like))!);
   }
 
   const rows = await db

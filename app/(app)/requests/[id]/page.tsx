@@ -96,6 +96,9 @@ export default async function RequestDetailPage({
       : []),
     ["Origin", <span key="s" className="capitalize">{req.source}</span>],
   ];
+  if (req.referredByCode) {
+    facts.splice(facts.length - 1, 0, ["Referred by", <span key="ref" className="rounded-full bg-lime/20 px-2 py-0.5 font-mono text-xs font-bold text-olive">{req.referredByCode}</span>]);
+  }
 
   return (
     <>

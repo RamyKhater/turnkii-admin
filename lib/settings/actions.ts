@@ -72,6 +72,19 @@ export async function updateNotifications(formData: FormData) {
   revalidatePath("/settings");
 }
 
+export async function updateReferral(formData: FormData) {
+  const user = await assertCap("settings:manage");
+  const db = await getDb();
+  const credit = Math.max(0, Math.round(Number(formData.get("creditEGP") ?? 0)));
+  const now = new Date();
+  await db.insert(siteSettings)
+    .values({ key: "referral.creditEGP", label: "Referral credit (EGP)", group: "referral", enabled: true, value: credit, updatedAt: now })
+    .onConflictDoUpdate({ target: siteSettings.key, set: { value: credit, updatedAt: now } });
+  await logActivity(user.id, "settings.referral", "setting", "referral", { credit });
+  revalidatePath("/settings");
+  revalidatePath("/referrals");
+}
+
 export async function updateWhatsapp(formData: FormData) {
   const user = await assertCap("settings:manage");
   const db = await getDb();

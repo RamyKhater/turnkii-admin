@@ -7,7 +7,7 @@ import { PageHeader, Card } from "@/components/ui";
 import { Field, SubmitButton } from "@/components/form";
 import { VerticalToggle } from "@/components/settings/vertical-toggle";
 import { PublishButton } from "@/components/content/publish-button";
-import { updateSla, updateNotifications, updateWhatsapp } from "@/lib/settings/actions";
+import { updateSla, updateNotifications, updateWhatsapp, updateReferral } from "@/lib/settings/actions";
 import { emailEnabled } from "@/lib/email/send";
 import { mergeEmailCopy, type EmailCopy } from "@/lib/email/requests";
 import { whatsappEnabled } from "@/lib/whatsapp/send";
@@ -23,6 +23,7 @@ export default async function SettingsPage() {
   const verticals = rows.filter((r) => r.group === "vertical");
   const first = Number(rows.find((r) => r.key === "sla.firstResponseHours")?.value ?? 24);
   const resolve = Number(rows.find((r) => r.key === "sla.resolveDays")?.value ?? 21);
+  const referralCredit = Number(rows.find((r) => r.key === "referral.creditEGP")?.value ?? 5000);
   const teamAlert = rows.find((r) => r.key === "notify.newRequestEmail")?.enabled ?? true;
   const customerReceipt = rows.find((r) => r.key === "notify.customerReceipt")?.enabled ?? true;
   const accountWelcome = rows.find((r) => r.key === "notify.accountWelcome")?.enabled ?? true;
@@ -73,6 +74,15 @@ export default async function SettingsPage() {
             <div className="w-48"><Field label="First response (hours)" name="firstResponseHours" type="number" defaultValue={first} /></div>
             <div className="w-48"><Field label="Resolution (days)" name="resolveDays" type="number" defaultValue={resolve} /></div>
             <SubmitButton>Save SLAs</SubmitButton>
+          </form>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-sm font-bold">Referral program</h2>
+          <p className="mt-1 text-sm text-sub">The credit a referrer earns off their own fit-out when a lead they sent signs a contract. Applied per signed referral.</p>
+          <form action={updateReferral} className="mt-4 flex flex-wrap items-end gap-4">
+            <div className="w-56"><Field label="Referral credit (EGP)" name="creditEGP" type="number" defaultValue={referralCredit} /></div>
+            <SubmitButton>Save credit</SubmitButton>
           </form>
         </Card>
 

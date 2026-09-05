@@ -29,6 +29,7 @@ const BASELINE_SETTINGS = [
   { key: "notify.newRequestEmail", label: "Email the team on new requests", group: "notify", enabled: true },
   { key: "notify.customerReceipt", label: "Send confirmation email to the submitter", group: "notify", enabled: true },
   { key: "notify.accountWelcome", label: "Welcome email on new staff accounts", group: "notify", enabled: true },
+  { key: "referral.creditEGP", label: "Referral credit (EGP)", group: "referral", enabled: true, value: 5000 },
   { key: "notify.extraRecipients", label: "Extra alert recipients", group: "notify", enabled: true, value: "" },
 ];
 

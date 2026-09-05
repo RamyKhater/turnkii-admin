@@ -84,10 +84,23 @@ export const requests = pgTable("requests", {
   utmContent: text("utm_content"),
   gclid: text("gclid"),
   fbclid: text("fbclid"),
+  referredByCode: text("referred_by_code"), // referral code that brought this lead
   firstResponseAt: timestamp("first_response_at", { withTimezone: true }),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Referral program: people who generate a personal referral link. A referred
+// lead carries requests.referredByCode = referrers.code; the referrer earns the
+// (admin-set) credit when that lead signs a contract (request status = won).
+export const referrers = pgTable("referrers", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  phone: text("phone").notNull(),
+  email: text("email"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const services = pgTable("services", {
