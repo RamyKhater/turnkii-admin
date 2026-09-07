@@ -129,9 +129,11 @@ export default async function SettingsPage() {
                 <Field label="Team alert — brief" name="copyTeamBrief" defaultValue={copy.teamBrief} />
                 <Field label="Team alert — financing" name="copyTeamFinancing" defaultValue={copy.teamFinancing} />
                 <Field label="Team alert — service" name="copyTeamService" defaultValue={copy.teamService} />
+                <Field label="Team alert — project" name="copyTeamProject" defaultValue={copy.teamProject} />
                 <Field label="Customer confirmation — brief" name="copyCustomerBrief" defaultValue={copy.customerBrief} />
                 <Field label="Customer confirmation — financing" name="copyCustomerFinancing" defaultValue={copy.customerFinancing} />
                 <Field label="Customer confirmation — service" name="copyCustomerService" defaultValue={copy.customerService} />
+                <Field label="Customer confirmation — project" name="copyCustomerProject" defaultValue={copy.customerProject} />
               </div>
             </details>
 

@@ -59,9 +59,18 @@ export default async function RequestDetailPage({
 
   const isFinancing = req.kind === "financing";
   const isService = req.kind === "service";
+  const isProject = req.kind === "project";
   const egp = (v?: number | null) => (v ? `EGP ${v.toLocaleString("en-US")}` : "—");
 
-  const facts: [string, React.ReactNode][] = isService ? [
+  const facts: [string, React.ReactNode][] = isProject ? [
+    ["Project type", req.propertyType ?? "—"],
+    ["Units", req.units ? String(req.units) : "—"],
+    ["Total area", req.area ? `${req.area} m²` : "—"],
+    ["Services", req.services?.length ? req.services.join(", ") : "—"],
+    ["Location", req.location ?? "—"],
+    ["Channel", req.channel ?? "—"],
+    ["Origin", <span key="s" className="capitalize">{req.source}</span>],
+  ] : isService ? [
     ["Services", req.services?.length ? req.services.join(", ") : "—"],
     ["Property", `${req.propertyType ?? "—"}${req.area ? ` · ${req.area}m²` : ""}`],
     ["Location", req.location ?? "—"],
@@ -103,7 +112,7 @@ export default async function RequestDetailPage({
   return (
     <>
       <PageHeader
-        eyebrow={isFinancing ? "Financing pre-approval" : isService ? "Service request" : "Request"}
+        eyebrow={isFinancing ? "Financing pre-approval" : isService ? "Service request" : isProject ? "Project enquiry" : "Request"}
         title={`${req.ref}`}
         sub={`Received ${req.createdAt.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`}
         actions={<Link href="/requests" className="rounded-full border border-line px-4 py-2 text-sm font-semibold hover:border-ink">← All requests</Link>}

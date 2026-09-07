@@ -94,6 +94,9 @@ export default async function RequestsPage({
                         {r.kind === "service" && (
                           <span className="rounded-full bg-info/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-info">Service</span>
                         )}
+                        {r.kind === "project" && (
+                          <span className="rounded-full bg-ink/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink">Project</span>
+                        )}
                       </div>
                       <div className="text-xs text-muted"><span className="capitalize">{r.source}</span> · {r.channel}</div>
                     </td>
@@ -112,6 +115,11 @@ export default async function RequestsPage({
                           {r.services?.length ? r.services.join(", ") : "Service request"}
                           <div className="text-xs text-muted">{r.location}</div>
                         </>
+                      ) : r.kind === "project" ? (
+                        <>
+                          {r.units ? `${r.units} units` : "Project"} · {r.propertyType ?? "—"}
+                          <div className="text-xs text-muted">{r.location}</div>
+                        </>
                       ) : (
                         <>
                           {r.propertyType} · {r.area}m²
@@ -119,7 +127,7 @@ export default async function RequestsPage({
                         </>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-sub">{r.kind === "financing" ? (r.budgetPlan ?? "—") : r.kind === "service" ? (r.channel ?? "—") : (r.style ? styleName.get(r.style) ?? r.style : "—")}</td>
+                    <td className="px-3 py-3 text-sub">{r.kind === "financing" ? (r.budgetPlan ?? "—") : (r.kind === "service" || r.kind === "project") ? (r.channel ?? "—") : (r.style ? styleName.get(r.style) ?? r.style : "—")}</td>
                     <td className="px-3 py-3">
                       {r.assignedTo ? (
                         <span className="inline-flex items-center gap-2">

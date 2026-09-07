@@ -21,6 +21,7 @@ const KIND_LABEL: Record<string, string> = {
   brief: "website request",
   financing: "financing pre-approval",
   service: "service request",
+  project: "project enquiry",
 };
 
 const isOn = (rows: { key: string; enabled: boolean }[], key: string, dflt: boolean) => {

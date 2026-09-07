@@ -66,6 +66,7 @@ export function FilterBar({
         <option value="brief">Briefs</option>
         <option value="financing">Financing</option>
         <option value="service">Service</option>
+        <option value="project">Projects</option>
       </select>
 
       <select value={params.get("source") ?? ""} onChange={(e) => setParam("source", e.target.value)} className={sel}>

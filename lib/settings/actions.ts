@@ -62,9 +62,11 @@ export async function updateNotifications(formData: FormData) {
     teamBrief: str("copyTeamBrief", EMAIL_COPY_DEFAULTS.teamBrief),
     teamFinancing: str("copyTeamFinancing", EMAIL_COPY_DEFAULTS.teamFinancing),
     teamService: str("copyTeamService", EMAIL_COPY_DEFAULTS.teamService),
+    teamProject: str("copyTeamProject", EMAIL_COPY_DEFAULTS.teamProject),
     customerBrief: str("copyCustomerBrief", EMAIL_COPY_DEFAULTS.customerBrief),
     customerFinancing: str("copyCustomerFinancing", EMAIL_COPY_DEFAULTS.customerFinancing),
     customerService: str("copyCustomerService", EMAIL_COPY_DEFAULTS.customerService),
+    customerProject: str("copyCustomerProject", EMAIL_COPY_DEFAULTS.customerProject),
   };
   await put("notify.emailCopy", "Email subject/heading copy", true, copy);
 

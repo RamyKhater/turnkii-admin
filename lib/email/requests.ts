@@ -15,18 +15,22 @@ export type EmailCopy = {
   teamBrief: string;
   teamFinancing: string;
   teamService: string;
+  teamProject: string;
   customerBrief: string;
   customerFinancing: string;
   customerService: string;
+  customerProject: string;
 };
 
 export const EMAIL_COPY_DEFAULTS: EmailCopy = {
   teamBrief: "New website request · {ref}",
   teamFinancing: "New financing pre-approval · {ref}",
   teamService: "New service request · {ref}",
+  teamProject: "New project enquiry · {ref}",
   customerBrief: "Thanks {first} — your brief is in",
   customerFinancing: "We've received your pre-approval request, {first}",
   customerService: "Thanks {first} — we've got your service request",
+  customerProject: "Thanks {first} — your project enquiry is in",
 };
 
 export function mergeEmailCopy(over: Partial<EmailCopy> | null | undefined): EmailCopy {
@@ -50,6 +54,7 @@ export function fillTokens(s: string, req: RequestRow): string {
 export function adminRequestEmail(req: RequestRow, title: string): { subject: string; html: string } {
   const fin = req.kind === "financing";
   const svc = req.kind === "service";
+  const proj = req.kind === "project";
   const property = [req.propertyType, req.area ? `${req.area} m²` : "", req.units ? `${req.units} unit${req.units === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ");
   const rows: [string, string][] = [
     ["Contact", req.contactName ?? ""],
@@ -63,6 +68,14 @@ export function adminRequestEmail(req: RequestRow, title: string): { subject: st
       ["Monthly income", egp(req.monthlyIncome)],
       ["Employment", req.employment ?? ""],
       ["Plan of interest", req.budgetPlan ?? ""],
+    );
+  } else if (proj) {
+    rows.push(
+      ["Project type", req.propertyType ?? ""],
+      ["Units", req.units ? String(req.units) : ""],
+      ["Total area", req.area ? `${req.area} m²` : ""],
+      ["Services", (req.services ?? []).join(", ")],
+      ["Location", req.location ?? ""],
     );
   } else if (svc) {
     rows.push(
@@ -95,8 +108,13 @@ export function adminRequestEmail(req: RequestRow, title: string): { subject: st
 export function customerRequestEmail(req: RequestRow, title: string): { subject: string; html: string } {
   const fin = req.kind === "financing";
   const svc = req.kind === "service";
+  const proj = req.kind === "project";
   let body: string;
-  if (fin) {
+  if (proj) {
+    const scale = [req.units ? `${req.units} units` : "", req.propertyType ?? ""].filter(Boolean).join(" · ");
+    body =
+      `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">We've received your project enquiry${scale ? ` (${esc(scale)})` : ""}. Our projects team will call you on <b>${esc(req.phone ?? "your mobile")}</b> within one working day with a volume price band and a delivery programme.</p>`;
+  } else if (fin) {
     body =
       (req.indicativeLimit ? `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Based on the income you shared, your <b>indicative limit is ${esc(egp(req.indicativeLimit))}</b>. This is a soft estimate — it doesn't affect your credit file.</p>` : "") +
       `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Our team confirms the final limit with our partner bank once your scope is priced, usually within one working day of your free site survey. We'll call you on <b>${esc(req.phone ?? "your mobile")}</b> to arrange it.</p>`;
@@ -133,10 +151,10 @@ const isOn = (rows: { key: string; enabled: boolean }[], key: string, dflt: bool
 export async function dispatchRequestEmails(req: RequestRow): Promise<void> {
   const db = await getDb();
   const settings = await db.select().from(siteSettings);
-  const kind = req.kind === "financing" ? "financing" : req.kind === "service" ? "service" : "brief";
+  const kind = req.kind === "financing" ? "financing" : req.kind === "service" ? "service" : req.kind === "project" ? "project" : "brief";
   const copy = mergeEmailCopy(settings.find((s) => s.key === "notify.emailCopy")?.value as Partial<EmailCopy> | undefined);
-  const teamTemplate = kind === "financing" ? copy.teamFinancing : kind === "service" ? copy.teamService : copy.teamBrief;
-  const customerTemplate = kind === "financing" ? copy.customerFinancing : kind === "service" ? copy.customerService : copy.customerBrief;
+  const teamTemplate = kind === "financing" ? copy.teamFinancing : kind === "service" ? copy.teamService : kind === "project" ? copy.teamProject : copy.teamBrief;
+  const customerTemplate = kind === "financing" ? copy.customerFinancing : kind === "service" ? copy.customerService : kind === "project" ? copy.customerProject : copy.customerBrief;
 
   // 1) ops/admin alert
   if (isOn(settings, "notify.newRequestEmail", true)) {

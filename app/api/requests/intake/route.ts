@@ -22,7 +22,7 @@ const schema = z.object({
   services: z.array(z.string().max(60)).max(20).optional(),
   style: z.string().trim().max(60).optional(),
   budgetPlan: z.string().trim().max(60).optional(),
-  kind: z.enum(["brief", "financing", "service"]).optional(),
+  kind: z.enum(["brief", "financing", "service", "project"]).optional(),
   monthlyIncome: z.coerce.number().int().positive().max(100_000_000).optional(),
   financeAmount: z.coerce.number().int().positive().max(100_000_000).optional(),
   employment: z.string().trim().max(60).optional(),
@@ -90,6 +90,7 @@ export async function POST(req: Request) {
   const kind = d.kind ?? "brief";
   const isFinancing = kind === "financing";
   const isService = kind === "service";
+  const isProject = kind === "project";
 
   // Financing pre-approvals recompute the indicative limit server-side so the
   // number in the admin is trustworthy — using the SAME published affordability
@@ -103,7 +104,7 @@ export async function POST(req: Request) {
 
   const db = await getDb();
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(requests);
-  const ref = `${isFinancing ? "TF" : isService ? "TS" : "TK"}-${2400 + n}`;
+  const ref = `${isFinancing ? "TF" : isService ? "TS" : isProject ? "TP" : "TK"}-${2400 + n}`;
 
   const [row] = await db
     .insert(requests)
@@ -153,12 +154,16 @@ export async function POST(req: Request) {
     ? `New financing pre-approval ${row.ref}`
     : isService
       ? `New service request ${row.ref}`
-      : `New website request ${row.ref}`;
+      : isProject
+        ? `New project enquiry ${row.ref}`
+        : `New website request ${row.ref}`;
   const notifBody = isFinancing
     ? [parsed.data.contactName, indicativeLimit ? `up to ${egp(indicativeLimit)}` : "", d.employment ?? ""].filter(Boolean).join(" · ")
     : isService
       ? [parsed.data.contactName, (parsed.data.services ?? []).join(", "), parsed.data.location ?? ""].filter(Boolean).join(" · ")
-      : `${parsed.data.contactName} · ${parsed.data.location ?? ""}`.trim();
+      : isProject
+        ? [parsed.data.contactName, parsed.data.units ? `${parsed.data.units} units` : "", parsed.data.propertyType ?? ""].filter(Boolean).join(" · ")
+        : `${parsed.data.contactName} · ${parsed.data.location ?? ""}`.trim();
   await notifyRoles(["ops_manager", "admin"], {
     type: "request.new",
     title: notifTitle,
