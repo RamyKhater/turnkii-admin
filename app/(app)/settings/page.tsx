@@ -6,6 +6,8 @@ import { contentBlocks } from "@/lib/db/schema";
 import { PageHeader, Card } from "@/components/ui";
 import { Field, SubmitButton } from "@/components/form";
 import { VerticalToggle } from "@/components/settings/vertical-toggle";
+import { NavToggle } from "@/components/settings/nav-toggle";
+import { NAV_LINKS } from "@/lib/settings/nav";
 import { PublishButton } from "@/components/content/publish-button";
 import { updateSla, updateNotifications, updateWhatsapp, updateReferral } from "@/lib/settings/actions";
 import { emailEnabled } from "@/lib/email/send";
@@ -21,6 +23,7 @@ export default async function SettingsPage() {
   const [pub] = await db.select().from(contentBlocks).where(eq(contentBlocks.key, "__published")).limit(1);
   const lastPublished = ((pub?.value as { at?: string } | undefined)?.at) ?? null;
   const verticals = rows.filter((r) => r.group === "vertical");
+  const navLinks = NAV_LINKS.map((n) => ({ ...n, enabled: rows.find((r) => r.key === n.key)?.enabled ?? true }));
   const first = Number(rows.find((r) => r.key === "sla.firstResponseHours")?.value ?? 24);
   const resolve = Number(rows.find((r) => r.key === "sla.resolveDays")?.value ?? 21);
   const referralCredit = Number(rows.find((r) => r.key === "referral.creditEGP")?.value ?? 5000);
@@ -62,6 +65,25 @@ export default async function SettingsPage() {
                   <div className="text-xs text-muted">{v.enabled ? "Visible on the site" : "Hidden from the site"}</div>
                 </div>
                 <VerticalToggle settingKey={v.key} enabled={v.enabled} />
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-sm font-bold">Navigation &amp; footer links</h2>
+          <p className="mt-1 text-sm text-sub">
+            Show or hide these links across the site&rsquo;s header nav and footer. Each toggle rebuilds
+            the live site automatically (about a minute).
+          </p>
+          <div className="mt-4 divide-y divide-line">
+            {navLinks.map((v) => (
+              <div key={v.key} className="flex items-center justify-between gap-4 py-3">
+                <div>
+                  <div className="font-semibold">{v.label}</div>
+                  <div className="text-xs text-muted">{v.enabled ? "Shown in nav and footer" : "Hidden from nav and footer"}</div>
+                </div>
+                <NavToggle settingKey={v.key} enabled={v.enabled} />
               </div>
             ))}
           </div>

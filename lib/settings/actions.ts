@@ -7,6 +7,7 @@ import { siteSettings } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
 import { triggerSiteRebuild } from "@/lib/publish/trigger";
+import { NAV_LINKS } from "@/lib/settings/nav";
 import { EMAIL_COPY_DEFAULTS } from "@/lib/email/requests";
 import { WA_DEFAULTS } from "@/lib/whatsapp/requests";
 
@@ -18,6 +19,21 @@ export async function setVertical(key: string, enabled: boolean) {
   revalidatePath("/settings");
   // Fire the (slow, network) site rebuild AFTER the response is sent so the
   // toggle returns immediately instead of waiting on the deploy hook.
+  after(() => triggerSiteRebuild());
+}
+
+/** Toggle a nav/footer link. Upserts so it works even before the row is seeded,
+ *  then rebuilds the static site (after the response, like the vertical toggle). */
+export async function setNavLink(key: string, enabled: boolean) {
+  const user = await assertCap("settings:manage");
+  const db = await getDb();
+  const label = "Nav link: " + (NAV_LINKS.find((n) => n.key === key)?.label ?? key);
+  const now = new Date();
+  await db.insert(siteSettings)
+    .values({ key, label, group: "nav", enabled, value: null, updatedAt: now })
+    .onConflictDoUpdate({ target: siteSettings.key, set: { enabled, updatedAt: now } });
+  await logActivity(user.id, "settings.nav", "setting", key, { enabled });
+  revalidatePath("/settings");
   after(() => triggerSiteRebuild());
 }
 

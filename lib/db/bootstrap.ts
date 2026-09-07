@@ -30,6 +30,10 @@ const BASELINE_SETTINGS = [
   { key: "notify.customerReceipt", label: "Send confirmation email to the submitter", group: "notify", enabled: true },
   { key: "notify.accountWelcome", label: "Welcome email on new staff accounts", group: "notify", enabled: true },
   { key: "referral.creditEGP", label: "Referral credit (EGP)", group: "referral", enabled: true, value: 5000 },
+  { key: "nav.care", label: "Nav link: Care & maintenance", group: "nav", enabled: true },
+  { key: "nav.refer", label: "Nav link: Refer & earn", group: "nav", enabled: true },
+  { key: "nav.projects", label: "Nav link: Projects & bulk", group: "nav", enabled: true },
+  { key: "nav.account", label: "Nav link: My account", group: "nav", enabled: true },
   { key: "notify.extraRecipients", label: "Extra alert recipients", group: "notify", enabled: true, value: "" },
 ];
 

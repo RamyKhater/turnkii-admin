@@ -39,9 +39,13 @@ export async function GET() {
 
   // Section visibility from the vertical feature flags (key = "vertical.<name>").
   const sections: Record<string, boolean> = {};
+  const nav: Record<string, boolean> = {};
   for (const s of settings) {
     if (s.group === "vertical" && s.key.startsWith("vertical.")) {
       sections[s.key.slice("vertical.".length)] = s.enabled;
+    }
+    if (s.group === "nav" && s.key.startsWith("nav.")) {
+      nav[s.key.slice("nav.".length)] = s.enabled;
     }
   }
 
@@ -54,6 +58,7 @@ export async function GET() {
   const payload = {
     publishedAt: published?.at ?? null,
     sections,
+    nav,
     pricing: pricingRow?.value ?? null,
     financing: financingRow?.value ?? null,
     referralCredit: Number(settings.find((s) => s.key === "referral.creditEGP")?.value ?? 5000),
