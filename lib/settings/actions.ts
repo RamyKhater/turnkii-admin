@@ -37,6 +37,21 @@ export async function setNavLink(key: string, enabled: boolean) {
   after(() => triggerSiteRebuild());
 }
 
+/** Toggle the Arabic (العربية) version of the marketing site. While off, the
+ *  build emits no /ar pages, no language switch and no hreflang — keeping Arabic
+ *  hidden until every inner page is translated. Rebuilds the site after. */
+export async function setArabicEnabled(enabled: boolean) {
+  const user = await assertCap("settings:manage");
+  const db = await getDb();
+  const now = new Date();
+  await db.insert(siteSettings)
+    .values({ key: "arabic.enabled", label: "Arabic (العربية) site", group: "site", enabled, value: null, updatedAt: now })
+    .onConflictDoUpdate({ target: siteSettings.key, set: { enabled, updatedAt: now } });
+  await logActivity(user.id, "settings.arabic", "setting", "arabic.enabled", { enabled });
+  revalidatePath("/settings");
+  after(() => triggerSiteRebuild());
+}
+
 export async function updateSla(formData: FormData) {
   const user = await assertCap("settings:manage");
   const db = await getDb();

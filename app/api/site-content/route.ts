@@ -55,10 +55,15 @@ export async function GET() {
   // Published financing config (plans + pre-approval sizing). Null = site defaults.
   const financingRow = settings.find((s) => s.key === "financing" && s.enabled);
 
+  // Arabic (العربية) version gate. Off by default — the site build only emits
+  // /ar pages + the language switch when this is explicitly enabled.
+  const arabic = settings.find((s) => s.key === "arabic.enabled")?.enabled ?? false;
+
   const payload = {
     publishedAt: published?.at ?? null,
     sections,
     nav,
+    arabic,
     pricing: pricingRow?.value ?? null,
     financing: financingRow?.value ?? null,
     referralCredit: Number(settings.find((s) => s.key === "referral.creditEGP")?.value ?? 5000),

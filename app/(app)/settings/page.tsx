@@ -7,6 +7,7 @@ import { PageHeader, Card } from "@/components/ui";
 import { Field, SubmitButton } from "@/components/form";
 import { VerticalToggle } from "@/components/settings/vertical-toggle";
 import { NavToggle } from "@/components/settings/nav-toggle";
+import { ArabicToggle } from "@/components/settings/arabic-toggle";
 import { NAV_LINKS } from "@/lib/settings/nav";
 import { PublishButton } from "@/components/content/publish-button";
 import { updateSla, updateNotifications, updateWhatsapp, updateReferral } from "@/lib/settings/actions";
@@ -24,6 +25,7 @@ export default async function SettingsPage() {
   const lastPublished = ((pub?.value as { at?: string } | undefined)?.at) ?? null;
   const verticals = rows.filter((r) => r.group === "vertical");
   const navLinks = NAV_LINKS.map((n) => ({ ...n, enabled: rows.find((r) => r.key === n.key)?.enabled ?? true }));
+  const arabicEnabled = rows.find((r) => r.key === "arabic.enabled")?.enabled ?? false;
   const first = Number(rows.find((r) => r.key === "sla.firstResponseHours")?.value ?? 24);
   const resolve = Number(rows.find((r) => r.key === "sla.resolveDays")?.value ?? 21);
   const referralCredit = Number(rows.find((r) => r.key === "referral.creditEGP")?.value ?? 5000);
@@ -86,6 +88,24 @@ export default async function SettingsPage() {
                 <NavToggle settingKey={v.key} enabled={v.enabled} />
               </div>
             ))}
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-sm font-bold">Arabic (العربية) version</h2>
+          <p className="mt-1 text-sm text-sub">
+            Publish the right-to-left Arabic homepage and show the العربية switch in the header.
+            Keep this off until every inner page is translated. Toggling rebuilds the live site
+            automatically (about a minute).
+          </p>
+          <div className="mt-4 flex items-center justify-between gap-4 py-1">
+            <div>
+              <div className="font-semibold">Arabic site</div>
+              <div className="text-xs text-muted">
+                {arabicEnabled ? "Live at /ar with the language switch" : "Hidden — English only"}
+              </div>
+            </div>
+            <ArabicToggle enabled={arabicEnabled} />
           </div>
         </Card>
 

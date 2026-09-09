@@ -43,6 +43,7 @@ const SETTINGS = [
   { key: "nav.refer", label: "Nav link: Refer & earn", group: "nav", enabled: true },
   { key: "nav.projects", label: "Nav link: Projects & bulk", group: "nav", enabled: true },
   { key: "nav.account", label: "Nav link: My account", group: "nav", enabled: true },
+  { key: "arabic.enabled", label: "Arabic (العربية) site", group: "site", enabled: false },
   { key: "notify.extraRecipients", label: "Extra alert recipients", group: "notify", enabled: true, value: "" },
 ];
 
