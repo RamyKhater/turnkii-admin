@@ -64,6 +64,8 @@ export async function GET() {
     sections,
     nav,
     arabic,
+    // Admin-edited copy overrides: { "exact source string": "new text" }.
+    copy: (block("copyOverrides") as Record<string, string> | null) ?? {},
     pricing: pricingRow?.value ?? null,
     financing: financingRow?.value ?? null,
     referralCredit: Number(settings.find((s) => s.key === "referral.creditEGP")?.value ?? 5000),

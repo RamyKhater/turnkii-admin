@@ -30,6 +30,7 @@ export default async function ContentHub() {
     { href: "/content/inspiration", title: "Inspiration board", desc: "Shots — titles, specs, room tags and style.", ...ins },
     { href: "/content/handovers", title: "Recent handovers", desc: "Delivered-project gallery with partner suppliers.", ...ho },
     { href: "/content/copy", title: "Marketing copy", desc: "Landing hero and headline stats.", total: 2, published: 2 },
+    { href: "/content/site-copy", title: "Site copy", desc: "Edit any text on the site — headings, body and footer — from one place.", total: 1, published: 1 },
   ];
 
   return (

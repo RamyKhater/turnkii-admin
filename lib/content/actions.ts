@@ -224,6 +224,29 @@ const heroSchema = z.object({
   sub: z.string().trim(),
 });
 
+/** Save the full site-copy override map (any visible string → replacement),
+ *  edited on the "Site copy" screen against copy-manifest.json. Stored whole and
+ *  applied at build time by the marketing build. Rebuilds the live site. */
+export async function saveCopyOverrides(overrides: Record<string, string>) {
+  const user = await assertCap("content:edit");
+  const db = await getDb();
+  const clean: Record<string, string> = {};
+  for (const [k, v] of Object.entries(overrides || {})) {
+    if (typeof k !== "string" || typeof v !== "string") continue;
+    const key = k.slice(0, 2000);
+    const val = v.trim().slice(0, 2000);
+    if (key && val && val !== key) clean[key] = val;
+  }
+  await db
+    .insert(contentBlocks)
+    .values({ key: "copyOverrides", label: "Site copy overrides", value: clean })
+    .onConflictDoUpdate({ target: contentBlocks.key, set: { value: sql`excluded.value`, updatedAt: new Date() } });
+  await logActivity(user.id, "content.copy.overrides", "content", "copyOverrides", { count: Object.keys(clean).length });
+  await triggerSiteRebuild();
+  revalidatePath("/content/site-copy");
+  return { count: Object.keys(clean).length };
+}
+
 export async function saveCopy(formData: FormData) {
   const user = await assertCap("content:edit");
   const db = await getDb();
