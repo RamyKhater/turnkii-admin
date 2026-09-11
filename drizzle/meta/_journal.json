@@ -43,6 +43,13 @@
       "when": 1788632892981,
       "tag": "0005_high_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789109701982,
+      "tag": "0006_opposite_lake",
+      "breakpoints": true
     }
   ]
 }

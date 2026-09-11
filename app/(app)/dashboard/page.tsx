@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, sql, gte } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/guard";
 import { canAccessSection, homeSectionFor, can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { requests, users, styles, services, payments, projects, type Request } from "@/lib/db/schema";
+import { requests, users, styles, services, payments, projects, whatsappClicks, type Request } from "@/lib/db/schema";
 import { PageHeader, Card, StatTile, StatusBadge, Avatar, PIPELINE, STATUS_META } from "@/components/ui";
 import { firstResponseSla, resolutionSla } from "@/lib/sla";
 import { getSiteConfig } from "@/lib/settings";
@@ -36,6 +36,16 @@ export default async function DashboardPage() {
   const monthCount = rows.filter(
     (r) => r.createdAt.getMonth() === now.getMonth() && r.createdAt.getFullYear() === now.getFullYear(),
   ).length;
+
+  // WhatsApp click-to-chat intent (logged separately from real leads)
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const [waT] = await db.select({ n: sql<number>`count(*)::int` }).from(whatsappClicks);
+  const [waM] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(whatsappClicks)
+    .where(gte(whatsappClicks.createdAt, monthStart));
+  const waClicks = waT?.n ?? 0;
+  const waClicksMonth = waM?.n ?? 0;
 
   const byStatus = PIPELINE.map((s) => ({ status: s, count: rows.filter((r) => r.status === s).length }));
   const maxStatus = Math.max(1, ...byStatus.map((b) => b.count));
@@ -126,11 +136,12 @@ export default async function DashboardPage() {
       />
 
       <div className="space-y-5 p-6 lg:p-8">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <StatTile label={isAgent ? "Assigned to you" : "Total requests"} value={total} />
           <StatTile label="Open pipeline" value={open} hint={`${unassigned} unassigned`} />
           <StatTile label="Won rate" value={`${wonRate}%`} hint={`${won} won · ${lost} lost`} />
           <StatTile label="This month" value={monthCount} hint="new requests" />
+          <StatTile label="WhatsApp clicks" value={waClicks} hint={`${waClicksMonth} this month · intent, not leads`} />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

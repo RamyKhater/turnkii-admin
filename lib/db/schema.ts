@@ -91,6 +91,22 @@ export const requests = pgTable("requests", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// WhatsApp click-to-chat intent — one row per tap of a WhatsApp link on the
+// public site. Kept out of `requests` so real (contactable) leads aren't
+// inflated; surfaced as its own count on the dashboard.
+export const whatsappClicks = pgTable("whatsapp_clicks", {
+  id: serial("id").primaryKey(),
+  path: text("path"),
+  referrer: text("referrer"),
+  channel: text("channel").notNull().default("WhatsApp"),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  gclid: text("gclid"),
+  fbclid: text("fbclid"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Referral program: people who generate a personal referral link. A referred
 // lead carries requests.referredByCode = referrers.code; the referrer earns the
 // (admin-set) credit when that lead signs a contract (request status = won).
