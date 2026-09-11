@@ -108,6 +108,21 @@ export default async function RequestDetailPage({
   if (req.referredByCode) {
     facts.splice(facts.length - 1, 0, ["Referred by", <span key="ref" className="rounded-full bg-lime/20 px-2 py-0.5 font-mono text-xs font-bold text-olive">{req.referredByCode}</span>]);
   }
+  if (req.visitDay || req.visitSlot || req.visitType) {
+    const online = req.visitType === "online";
+    const when = [
+      req.visitDay ? new Date(req.visitDay).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "",
+      req.visitSlot ?? "",
+    ].filter(Boolean).join(" · ");
+    facts.splice(facts.length - 1, 0, ["Requested visit",
+      <span key="visit" className="inline-flex flex-wrap items-center gap-2">
+        <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${online ? "bg-ink text-lime" : "bg-lime/20 text-olive"}`}>
+          {online ? "Online meeting" : "On-site survey"}
+        </span>
+        {when ? <span>{when}</span> : null}
+      </span>,
+    ]);
+  }
 
   return (
     <>

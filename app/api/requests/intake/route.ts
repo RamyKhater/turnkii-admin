@@ -36,6 +36,9 @@ const schema = z.object({
   gclid: z.string().trim().max(400).optional(),
   fbclid: z.string().trim().max(400).optional(),
   referredByCode: z.string().trim().max(40).optional(),
+  visitDay: z.string().trim().max(20).optional(),
+  visitSlot: z.string().trim().max(20).optional(),
+  visitType: z.enum(["site", "online"]).optional(),
   message: z.string().trim().max(4000).optional(),
 });
 
@@ -135,6 +138,9 @@ export async function POST(req: Request) {
       gclid: d.gclid,
       fbclid: d.fbclid,
       referredByCode: d.referredByCode || null,
+      visitDay: d.visitDay || null,
+      visitSlot: d.visitSlot || null,
+      visitType: d.visitType || null,
       message: parsed.data.message,
       status: "new",
       source: "website",
