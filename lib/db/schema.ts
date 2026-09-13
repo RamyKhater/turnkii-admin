@@ -88,6 +88,7 @@ export const requests = pgTable("requests", {
   visitDay: text("visit_day"), // requested date (ISO yyyy-mm-dd) for the survey / meeting
   visitSlot: text("visit_slot"), // requested time window (e.g. 10:00)
   visitType: text("visit_type"), // site | online — on-site survey or online meeting
+  expEmail: text("exp_email"), // email-required A/B arm: 'A' (control) | 'B' (email required)
   firstResponseAt: timestamp("first_response_at", { withTimezone: true }),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

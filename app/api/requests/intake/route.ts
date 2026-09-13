@@ -14,7 +14,7 @@ import { dispatchRequestWhatsApp } from "@/lib/whatsapp/requests";
 const schema = z.object({
   contactName: z.string().trim().min(1).max(120),
   phone: z.string().trim().min(4).max(40),
-  email: z.string().email().optional().or(z.literal("")),
+  email: z.string().trim().email().optional().or(z.literal("")),
   propertyType: z.string().trim().max(60).optional(),
   area: z.coerce.number().int().positive().max(100000).optional(),
   units: z.coerce.number().int().positive().max(10000).optional(),
@@ -39,7 +39,15 @@ const schema = z.object({
   visitDay: z.string().trim().max(20).optional(),
   visitSlot: z.string().trim().max(20).optional(),
   visitType: z.enum(["site", "online"]).optional(),
+  // Email-required A/B experiment arm the visitor was in ('A' = email optional /
+  // control, 'B' = email required). Recorded so lead volume AND quality can be
+  // compared per arm; arm 'B' also enforces a valid email server-side.
+  expEmail: z.enum(["A", "B"]).optional(),
   message: z.string().trim().max(4000).optional(),
+}).superRefine((data, ctx) => {
+  if (data.expEmail === "B" && !data.email) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["email"], message: "Email is required" });
+  }
 });
 
 const CORS = {
@@ -141,6 +149,7 @@ export async function POST(req: Request) {
       visitDay: d.visitDay || null,
       visitSlot: d.visitSlot || null,
       visitType: d.visitType || null,
+      expEmail: d.expEmail || null,
       message: parsed.data.message,
       status: "new",
       source: "website",
