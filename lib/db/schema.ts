@@ -375,7 +375,51 @@ export const activityLog = pgTable("activity_log", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Client proposals / design directions. Authored in the admin, shared with a
+//    client via one unguessable token (generated once) that opens a hidden,
+//    noindexed page on the marketing site. Structured content covers the four
+//    sections: design direction, scope & investment, timeline, and a client CTA.
+export const proposalStatusEnum = pgEnum("proposal_status", [
+  "draft",
+  "sent",
+  "viewed",
+  "approved",
+  "archived",
+]);
+
+export const proposals = pgTable("proposals", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(), // unguessable share token, generated once
+  title: text("title").notNull(),
+  clientName: text("client_name"),
+  status: proposalStatusEnum("status").notNull().default("draft"),
+  intro: text("intro"), // personal message shown at the top
+  // design direction
+  styleName: text("style_name"),
+  palette: text("palette"), // e.g. "Sand · Walnut · Olive"
+  directionNote: text("direction_note"),
+  images: jsonb("images").$type<string[]>().default([]), // mood / reference image URLs
+  // scope & investment
+  scopeItems: jsonb("scope_items").$type<{ label: string; note?: string; price?: string }[]>().default([]),
+  priceLabel: text("price_label"), // e.g. "EGP 1.2M – 1.6M"
+  financingNote: text("financing_note"),
+  // timeline
+  timelineItems: jsonb("timeline_items").$type<{ phase: string; duration?: string; note?: string }[]>().default([]),
+  timelineNote: text("timeline_note"),
+  // client action
+  ctaType: text("cta_type"), // "approve" | "call" | "whatsapp" | "none"
+  ctaLabel: text("cta_label"),
+  ctaValue: text("cta_value"), // phone / whatsapp number / booking URL
+  // tracking
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  viewedAt: timestamp("viewed_at", { withTimezone: true }),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
+export type Proposal = typeof proposals.$inferSelect;
 export type Request = typeof requests.$inferSelect;
 export type RequestNote = typeof requestNotes.$inferSelect;
 export type Style = typeof styles.$inferSelect;

@@ -29,6 +29,7 @@ export type Capability =
   | "payments:manage"
   | "projects:manage"
   | "pricing:manage"
+  | "proposals:manage"
   | "settings:manage"
   | "users:manage";
 
@@ -37,16 +38,16 @@ const MATRIX: Record<Role, Capability[]> = {
     "requests:view_all", "requests:create", "requests:assign", "requests:update",
     "requests:delete", "requests:note", "analytics:view", "content:edit",
     "properties:view", "properties:edit", "payments:view", "payments:manage",
-    "projects:manage", "pricing:manage",
+    "projects:manage", "pricing:manage", "proposals:manage",
     "settings:manage", "users:manage",
   ],
   product_manager: ["requests:view_all", "analytics:view", "content:edit", "properties:view", "payments:view", "pricing:manage"],
   ops_manager: [
     "requests:view_all", "requests:create", "requests:assign", "requests:update",
     "requests:note", "analytics:view", "properties:view", "properties:edit",
-    "payments:view", "payments:manage", "projects:manage",
+    "payments:view", "payments:manage", "projects:manage", "proposals:manage",
   ],
-  agent: ["requests:view_assigned", "requests:update", "requests:note"],
+  agent: ["requests:view_assigned", "requests:update", "requests:note", "proposals:manage"],
   content_editor: ["content:edit"],
 };
 
@@ -57,7 +58,7 @@ export function can(role: Role, cap: Capability): boolean {
 /** Whether a role can reach a given section of the app at all. */
 export type Section =
   | "dashboard" | "requests" | "properties" | "projects" | "pricing" | "payments"
-  | "content" | "users" | "settings";
+  | "proposals" | "content" | "users" | "settings";
 
 export function canAccessSection(role: Role, section: Section): boolean {
   switch (section) {
@@ -71,6 +72,8 @@ export function canAccessSection(role: Role, section: Section): boolean {
       return can(role, "projects:manage") || can(role, "payments:view") || can(role, "properties:view");
     case "pricing":
       return can(role, "pricing:manage");
+    case "proposals":
+      return can(role, "proposals:manage");
     case "payments":
       return can(role, "payments:view");
     case "content":
