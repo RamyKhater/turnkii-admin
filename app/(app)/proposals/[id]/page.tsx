@@ -16,8 +16,11 @@ const STATUS: Record<string, string> = {
   sent: "bg-info/10 text-info",
   viewed: "bg-lime/20 text-olive",
   approved: "bg-ok/15 text-ok",
+  changes_requested: "bg-warn/15 text-warn",
+  rejected: "bg-crit/10 text-crit",
   archived: "bg-sand text-muted",
 };
+const STATUS_LABEL: Record<string, string> = { changes_requested: "changes requested" };
 
 export default async function ProposalDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireCap("proposals:manage");
@@ -48,7 +51,7 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
         title={p.title}
         sub={p.clientName ?? undefined}
         actions={
-          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold capitalize ${STATUS[p.status] ?? STATUS.draft}`}>{p.status}</span>
+          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold capitalize ${STATUS[p.status] ?? STATUS.draft}`}>{STATUS_LABEL[p.status] ?? p.status}</span>
         }
       />
 
@@ -97,8 +100,21 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
             <div className="ml-auto flex flex-wrap gap-x-5 gap-y-1 text-xs text-sub">
               {fmt(p.viewedAt) && <span>Opened {fmt(p.viewedAt)}</span>}
               {fmt(p.approvedAt) && <span className="font-semibold text-ok">Approved {fmt(p.approvedAt)}</span>}
+              {fmt(p.respondedAt) && (
+                <span className={`font-semibold ${p.status === "rejected" ? "text-crit" : "text-warn"}`}>
+                  {p.status === "rejected" ? "Declined" : "Changes requested"} {fmt(p.respondedAt)}
+                </span>
+              )}
             </div>
           </div>
+          {p.responseNote && (
+            <div className={`mt-4 rounded-xl border p-4 ${p.status === "rejected" ? "border-crit/30 bg-crit/5" : "border-warn/30 bg-warn/5"}`}>
+              <div className="text-xs font-bold uppercase tracking-wider text-muted">
+                {p.status === "rejected" ? "Reason the client gave" : "Change the client asked for"}
+              </div>
+              <p className="mt-1 whitespace-pre-line text-sm text-ink">{p.responseNote}</p>
+            </div>
+          )}
           {p.status === "archived" && (
             <p className="mt-3 text-xs text-crit">Archived — the link now returns “not found” to anyone who opens it.</p>
           )}

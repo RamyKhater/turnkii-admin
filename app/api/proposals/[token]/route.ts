@@ -94,50 +94,54 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     return Response.json({ error: "Not found" }, { status: 404, headers: CORS });
   }
 
-  let body: { action?: string } = {};
+  let body: { action?: string; message?: string } = {};
   try {
     body = await req.json();
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400, headers: CORS });
   }
 
-  if (body.action === "approve") {
-    const db = await getDb();
-    await db
-      .update(proposals)
-      .set({ status: "approved", approvedAt: new Date(), updatedAt: new Date() })
-      .where(eq(proposals.id, row.id));
-    await logActivity(null, "proposal.approved", "proposal", String(row.id), { via: "client" });
-    // Drop a note on the linked request so it shows up on the lead's timeline.
-    if (row.requestId) {
-      await db.insert(requestNotes).values({
-        requestId: row.requestId,
-        authorId: null,
-        kind: "status",
-        body: `Client approved the proposal "${row.title}".`,
-      });
-    }
-    const recipients = row.createdBy ? [row.createdBy] : [];
-    for (const uid of recipients) {
-      await notify(uid, {
-        type: "proposal.approved",
-        title: `Proposal approved — ${row.title}`,
-        body: row.clientName ?? undefined,
-        entity: "proposal",
-        entityId: row.id,
-        href: `/proposals/${row.id}`,
-      });
-    }
-    await notifyRoles(["ops_manager", "admin"], {
-      type: "proposal.approved",
-      title: `Proposal approved — ${row.title}`,
-      body: row.clientName ?? undefined,
-      entity: "proposal",
-      entityId: row.id,
-      href: `/proposals/${row.id}`,
-    }, row.createdBy ?? undefined);
-    return Response.json({ ok: true, status: "approved" }, { status: 200, headers: CORS });
+  const message = typeof body.message === "string" ? body.message.trim().slice(0, 2000) : "";
+  const ACTIONS = {
+    approve: { status: "approved" as const, verb: "approved", needsMessage: false },
+    changes: { status: "changes_requested" as const, verb: "requested changes to", needsMessage: true },
+    reject: { status: "rejected" as const, verb: "declined", needsMessage: false },
+  };
+  const spec = ACTIONS[body.action as keyof typeof ACTIONS];
+  if (!spec) return Response.json({ error: "Unknown action" }, { status: 400, headers: CORS });
+  if (spec.needsMessage && !message) {
+    return Response.json({ error: "Please describe the change you'd like." }, { status: 422, headers: CORS });
   }
 
-  return Response.json({ error: "Unknown action" }, { status: 400, headers: CORS });
+  const db = await getDb();
+  const now = new Date();
+  await db
+    .update(proposals)
+    .set({
+      status: spec.status,
+      updatedAt: now,
+      ...(spec.status === "approved" ? { approvedAt: now } : { respondedAt: now }),
+      ...(message ? { responseNote: message } : {}),
+    })
+    .where(eq(proposals.id, row.id));
+
+  await logActivity(null, `proposal.${spec.status}`, "proposal", String(row.id), { via: "client" });
+
+  // Mirror onto the linked request's timeline.
+  if (row.requestId) {
+    await db.insert(requestNotes).values({
+      requestId: row.requestId,
+      authorId: null,
+      kind: "status",
+      body: `Client ${spec.verb} the proposal "${row.title}".` + (message ? `\n“${message}”` : ""),
+    });
+  }
+
+  const title = `Proposal ${spec.status === "changes_requested" ? "— changes requested" : spec.verb} — ${row.title}`;
+  const notifBody = [row.clientName, message].filter(Boolean).join(" · ") || undefined;
+  const payload = { type: `proposal.${spec.status}`, title, body: notifBody, entity: "proposal", entityId: row.id, href: `/proposals/${row.id}` };
+  if (row.createdBy) await notify(row.createdBy, payload);
+  await notifyRoles(["ops_manager", "admin"], payload, row.createdBy ?? undefined);
+
+  return Response.json({ ok: true, status: spec.status }, { status: 200, headers: CORS });
 }

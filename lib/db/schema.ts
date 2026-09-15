@@ -384,6 +384,8 @@ export const proposalStatusEnum = pgEnum("proposal_status", [
   "sent",
   "viewed",
   "approved",
+  "changes_requested",
+  "rejected",
   "archived",
 ]);
 
@@ -415,6 +417,8 @@ export const proposals = pgTable("proposals", {
   createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
   viewedAt: timestamp("viewed_at", { withTimezone: true }),
   approvedAt: timestamp("approved_at", { withTimezone: true }),
+  respondedAt: timestamp("responded_at", { withTimezone: true }), // when the client rejected / asked for changes
+  responseNote: text("response_note"), // the client's change request or rejection reason
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

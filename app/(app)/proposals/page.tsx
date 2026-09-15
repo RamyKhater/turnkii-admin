@@ -10,8 +10,11 @@ const STATUS: Record<string, string> = {
   sent: "bg-info/10 text-info",
   viewed: "bg-lime/20 text-olive",
   approved: "bg-ok/15 text-ok",
+  changes_requested: "bg-warn/15 text-warn",
+  rejected: "bg-crit/10 text-crit",
   archived: "bg-sand text-muted",
 };
+const LABEL: Record<string, string> = { changes_requested: "changes" };
 
 export default async function ProposalsPage() {
   await requireCap("proposals:manage");
@@ -55,7 +58,7 @@ export default async function ProposalsPage() {
                     </td>
                     <td className="px-5 py-3 text-sub">{r.clientName ?? "—"}</td>
                     <td className="px-5 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ${STATUS[r.status] ?? STATUS.draft}`}>{r.status}</span>
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ${STATUS[r.status] ?? STATUS.draft}`}>{LABEL[r.status] ?? r.status}</span>
                     </td>
                     <td className="px-5 py-3 text-sub">
                       {r.viewedAt ? r.viewedAt.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—"}
