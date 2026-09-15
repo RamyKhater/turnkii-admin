@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { proposals } from "@/lib/db/schema";
+import { proposals, requests } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
 
@@ -35,9 +35,11 @@ function parseBody(formData: FormData) {
     ...(duration ? { duration } : {}),
     ...(note ? { note } : {}),
   }));
+  const rid = str(formData.get("requestId"));
   return {
     title: str(formData.get("title")) || "Untitled proposal",
     clientName: orNull(formData.get("clientName")),
+    requestId: rid ? Number(rid) : null,
     intro: orNull(formData.get("intro")),
     styleName: orNull(formData.get("styleName")),
     palette: orNull(formData.get("palette")),
@@ -60,9 +62,19 @@ export async function createProposal(formData: FormData) {
   // The share token is generated once, here, and never regenerated.
   const token = randomBytes(24).toString("hex");
   const db = await getDb();
+  const body = parseBody(formData);
+  // When linked to a request and no client name was typed, borrow the lead's name.
+  if (!body.clientName && body.requestId) {
+    const [req] = await db
+      .select({ name: requests.contactName })
+      .from(requests)
+      .where(eq(requests.id, body.requestId))
+      .limit(1);
+    if (req?.name) body.clientName = req.name;
+  }
   const [row] = await db
     .insert(proposals)
-    .values({ ...parseBody(formData), token, createdBy: user.id })
+    .values({ ...body, token, createdBy: user.id })
     .returning({ id: proposals.id });
   await logActivity(user.id, "proposal.create", "proposal", String(row.id));
   redirect(`/proposals/${row.id}`);

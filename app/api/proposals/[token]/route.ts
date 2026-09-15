@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { proposals } from "@/lib/db/schema";
+import { proposals, requestNotes } from "@/lib/db/schema";
 import { notify, notifyRoles } from "@/lib/notifications";
 import { logActivity } from "@/lib/activity";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
@@ -108,6 +108,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       .set({ status: "approved", approvedAt: new Date(), updatedAt: new Date() })
       .where(eq(proposals.id, row.id));
     await logActivity(null, "proposal.approved", "proposal", String(row.id), { via: "client" });
+    // Drop a note on the linked request so it shows up on the lead's timeline.
+    if (row.requestId) {
+      await db.insert(requestNotes).values({
+        requestId: row.requestId,
+        authorId: null,
+        kind: "status",
+        body: `Client approved the proposal "${row.title}".`,
+      });
+    }
     const recipients = row.createdBy ? [row.createdBy] : [];
     for (const uid of recipients) {
       await notify(uid, {

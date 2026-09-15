@@ -4,7 +4,7 @@ import { eq, desc } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/guard";
 import { canAccessSection, can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { requests, requestNotes, users, styles } from "@/lib/db/schema";
+import { requests, requestNotes, users, styles, proposals } from "@/lib/db/schema";
 import { PageHeader, Card, StatusBadge, Avatar } from "@/components/ui";
 import { StatusControl, AssignControl, NoteForm } from "@/components/requests/controls";
 import { firstResponseSla, resolutionSla, SLA_STYLE } from "@/lib/sla";
@@ -47,6 +47,15 @@ export default async function RequestDetailPage({
     .from(requestNotes)
     .where(eq(requestNotes.requestId, id))
     .orderBy(desc(requestNotes.createdAt));
+
+  const canProposals = can(user.role, "proposals:manage");
+  const linkedProposals = canProposals
+    ? await db
+        .select({ id: proposals.id, title: proposals.title, status: proposals.status })
+        .from(proposals)
+        .where(eq(proposals.requestId, id))
+        .orderBy(desc(proposals.createdAt))
+    : [];
 
   const { sla } = await getSiteConfig();
   const fr = firstResponseSla(req, sla.firstResponseHours);
@@ -252,6 +261,27 @@ export default async function RequestDetailPage({
               )}
             </div>
           </Card>
+
+          {canProposals && (
+            <Card className="p-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold">Proposals</h2>
+                <Link href={`/proposals/new?requestId=${id}`} className="text-xs font-semibold text-olive hover:underline">+ New</Link>
+              </div>
+              <div className="mt-3 space-y-2">
+                {linkedProposals.length === 0 ? (
+                  <p className="text-xs text-muted">No proposals linked to this request yet.</p>
+                ) : (
+                  linkedProposals.map((pr) => (
+                    <Link key={pr.id} href={`/proposals/${pr.id}`} className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-sm hover:border-ink">
+                      <span className="min-w-0 truncate font-medium text-ink">{pr.title}</span>
+                      <span className="shrink-0 rounded-full bg-sand px-2 py-0.5 text-xs font-bold capitalize text-sub">{pr.status}</span>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </>

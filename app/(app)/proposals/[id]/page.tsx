@@ -1,8 +1,10 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { requireCap } from "@/lib/auth/guard";
+import { can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { proposals } from "@/lib/db/schema";
+import { proposals, requests } from "@/lib/db/schema";
 import { PageHeader, Card } from "@/components/ui";
 import { ProposalForm } from "@/components/proposals/proposal-form";
 import { CopyLink } from "@/components/proposals/copy-link";
@@ -18,7 +20,7 @@ const STATUS: Record<string, string> = {
 };
 
 export default async function ProposalDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireCap("proposals:manage");
+  const user = await requireCap("proposals:manage");
   const { id: idStr } = await params;
   const id = Number(idStr);
   if (!Number.isInteger(id)) notFound();
@@ -26,6 +28,15 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
   const db = await getDb();
   const [p] = await db.select().from(proposals).where(eq(proposals.id, id)).limit(1);
   if (!p) notFound();
+
+  const scope = can(user.role, "requests:view_all") ? undefined : eq(requests.assignedTo, user.id);
+  const reqRows = await db
+    .select({ id: requests.id, ref: requests.ref, contactName: requests.contactName })
+    .from(requests)
+    .where(scope)
+    .orderBy(desc(requests.createdAt))
+    .limit(200);
+  const linkedRequest = p.requestId ? reqRows.find((r) => r.id === p.requestId) : null;
 
   const url = proposalUrl(p.token);
   const fmt = (d: Date | null) => (d ? d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : null);
@@ -50,6 +61,15 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
           <div className="mt-4">
             <CopyLink url={url} />
           </div>
+
+          {p.requestId && (
+            <div className="mt-4 flex items-center gap-2 text-sm">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted">Linked request</span>
+              <Link href={`/requests/${p.requestId}`} className="rounded-full bg-sand px-3 py-1 font-semibold text-ink hover:text-olive">
+                {linkedRequest ? `${linkedRequest.ref}${linkedRequest.contactName ? ` · ${linkedRequest.contactName}` : ""}` : `Request #${p.requestId}`} →
+              </Link>
+            </div>
+          )}
 
           <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-4">
             <span className="text-xs font-bold uppercase tracking-wider text-muted">Status</span>
@@ -85,7 +105,7 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
         </Card>
       </div>
 
-      <ProposalForm proposal={p} />
+      <ProposalForm proposal={p} requests={reqRows} />
 
       <div className="px-6 pb-10 lg:px-8">
         <form action={deleteProposal} className="border-t border-line pt-5">

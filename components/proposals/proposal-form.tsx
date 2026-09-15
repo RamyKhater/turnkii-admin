@@ -26,9 +26,20 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 const linesToText = (rows: { [k: string]: string | undefined }[] | null | undefined, keys: string[]) =>
   (rows ?? []).map((r) => keys.map((k) => r[k] ?? "").join(" | ").replace(/(\s\|\s)+$/, "")).join("\n");
 
-export function ProposalForm({ proposal }: { proposal?: Proposal }) {
+type RequestOption = { id: number; ref: string; contactName: string | null };
+
+export function ProposalForm({
+  proposal,
+  requests = [],
+  defaultRequestId,
+}: {
+  proposal?: Proposal;
+  requests?: RequestOption[];
+  defaultRequestId?: number;
+}) {
   const p = proposal;
   const editing = !!p;
+  const selectedRequest = p?.requestId ?? defaultRequestId;
   return (
     <form action={editing ? updateProposal : createProposal} className="grid max-w-3xl gap-5 p-6 lg:p-8">
       {editing && <input type="hidden" name="id" value={p!.id} />}
@@ -37,9 +48,21 @@ export function ProposalForm({ proposal }: { proposal?: Proposal }) {
         <Field label="Proposal title">
           <input name="title" required defaultValue={p?.title ?? ""} placeholder="Finishing & furnishing — Marassi villa" className={field} />
         </Field>
-        <Field label="Client name">
-          <input name="clientName" defaultValue={p?.clientName ?? ""} placeholder="e.g. Mr Karim Hassan" className={field} />
-        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Client name" hint="Left blank, it's taken from the linked request.">
+            <input name="clientName" defaultValue={p?.clientName ?? ""} placeholder="e.g. Mr Karim Hassan" className={field} />
+          </Field>
+          <Field label="Link to request" hint="Ties this proposal to an existing lead.">
+            <select name="requestId" defaultValue={selectedRequest ? String(selectedRequest) : ""} className={field}>
+              <option value="">— No linked request —</option>
+              {requests.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.ref}{r.contactName ? ` · ${r.contactName}` : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
         <Field label="Personal intro" hint="A short note shown at the top of the page.">
           <textarea name="intro" rows={3} defaultValue={p?.intro ?? ""} placeholder="Thanks for the visit — here's the direction we'd propose for your unit…" className={field} />
         </Field>

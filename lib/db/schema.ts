@@ -392,6 +392,7 @@ export const proposals = pgTable("proposals", {
   token: text("token").notNull().unique(), // unguessable share token, generated once
   title: text("title").notNull(),
   clientName: text("client_name"),
+  requestId: integer("request_id").references(() => requests.id, { onDelete: "set null" }), // optional link to the originating lead
   status: proposalStatusEnum("status").notNull().default("draft"),
   intro: text("intro"), // personal message shown at the top
   // design direction
