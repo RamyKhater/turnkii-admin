@@ -20,11 +20,22 @@ function lines(v: FormDataEntryValue | null): string[][] {
     .map((l) => l.split("|").map((p) => p.trim()));
 }
 
+// The image uploader (MediaRepeater) serialises to a JSON array of { image };
+// fall back to newline-separated URLs so older/pasted input still works.
+function parseImages(v: FormDataEntryValue | null): string[] {
+  const raw = str(v);
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) {
+      return arr.map((it) => (typeof it === "string" ? it : it?.image)).filter((u): u is string => !!u && typeof u === "string");
+    }
+  } catch { /* not JSON — treat as newline URLs */ }
+  return raw.split("\n").map((l) => l.trim()).filter(Boolean);
+}
+
 function parseBody(formData: FormData) {
-  const images = str(formData.get("images"))
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
+  const images = parseImages(formData.get("images"));
   const scopeItems = lines(formData.get("scopeItems")).map(([label, note, price]) => ({
     label: label ?? "",
     ...(note ? { note } : {}),

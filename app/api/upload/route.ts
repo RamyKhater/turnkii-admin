@@ -22,7 +22,7 @@ const MAX_DIM = 2200; // cap the longest side for the web
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
-  const staffOk = user && (can(user.role, "content:edit") || can(user.role, "payments:manage"));
+  const staffOk = user && (can(user.role, "content:edit") || can(user.role, "payments:manage") || can(user.role, "proposals:manage"));
   const owner = staffOk ? null : await getCurrentOwner();
   if (!staffOk && !owner) {
     return Response.json({ error: "Not authorized" }, { status: 403 });

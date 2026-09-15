@@ -1,5 +1,6 @@
 import type { Proposal } from "@/lib/db/schema";
 import { createProposal, updateProposal } from "@/lib/proposals/actions";
+import { MediaRepeater } from "@/components/content/media-repeater";
 
 const field = "w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-ink";
 const labelC = "block text-xs font-bold uppercase tracking-wider text-muted";
@@ -80,9 +81,15 @@ export function ProposalForm({
         <Field label="Direction note">
           <textarea name="directionNote" rows={2} defaultValue={p?.directionNote ?? ""} placeholder="Soft, photogenic and easy to let — cane, walnut and sand plaster." className={field} />
         </Field>
-        <Field label="Reference images" hint="One image URL per line (mood / reference shots).">
-          <textarea name="images" rows={3} defaultValue={(p?.images ?? []).join("\n")} placeholder={"https://turnkii.app/assets/style-warm.jpg\nhttps://…"} className={field} />
-        </Field>
+        <div>
+          <MediaRepeater
+            name="images"
+            label="Reference images"
+            addLabel="image"
+            initial={(p?.images ?? []).map((u) => ({ image: u }))}
+          />
+          <p className="mt-1.5 text-xs text-sub">Upload mood / reference shots — the first image leads the gallery. JPG, PNG, WebP or iPhone HEIC; they're resized automatically.</p>
+        </div>
       </Section>
 
       <Section title="Scope & investment">
