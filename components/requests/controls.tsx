@@ -1,7 +1,7 @@
 "use client";
 import { useTransition } from "react";
 import { useActionState } from "react";
-import { updateStatus, assignRequest, addNote, type NoteState } from "@/lib/requests/actions";
+import { updateStatus, assignRequest, addNote, deleteRequest, type NoteState } from "@/lib/requests/actions";
 import { PIPELINE, STATUS_META } from "@/components/ui";
 import type { RequestStatus } from "@/lib/db/schema";
 
@@ -85,5 +85,24 @@ export function NoteForm({ id }: { id: number }) {
         {pending ? "Saving…" : "Add to timeline"}
       </button>
     </form>
+  );
+}
+
+export function DeleteRequest({ id, reqRef }: { id: number; reqRef: string }) {
+  const [pending, start] = useTransition();
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={() => {
+        if (!window.confirm(`Delete request ${reqRef} permanently? This removes it and its timeline, and cannot be undone.`)) return;
+        start(() => {
+          deleteRequest(id);
+        });
+      }}
+      className="text-sm font-semibold text-crit hover:underline disabled:opacity-60"
+    >
+      {pending ? "Deleting…" : "Delete this request"}
+    </button>
   );
 }

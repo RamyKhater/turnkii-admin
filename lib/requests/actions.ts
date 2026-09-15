@@ -169,4 +169,5 @@ export async function deleteRequest(id: number) {
   await logActivity(user.id, "request.delete", "request", id);
   revalidatePath("/requests");
   revalidatePath("/dashboard");
+  redirect("/requests");
 }

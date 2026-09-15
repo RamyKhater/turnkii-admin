@@ -6,7 +6,7 @@ import { canAccessSection, can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
 import { requests, requestNotes, users, styles, proposals } from "@/lib/db/schema";
 import { PageHeader, Card, StatusBadge, Avatar } from "@/components/ui";
-import { StatusControl, AssignControl, NoteForm } from "@/components/requests/controls";
+import { StatusControl, AssignControl, NoteForm, DeleteRequest } from "@/components/requests/controls";
 import { firstResponseSla, resolutionSla, SLA_STYLE } from "@/lib/sla";
 import { getSiteConfig } from "@/lib/settings";
 
@@ -65,6 +65,7 @@ export default async function RequestDetailPage({
   const canUpdate = can(user.role, "requests:update") && owns;
   const canAssign = can(user.role, "requests:assign");
   const canNote = can(user.role, "requests:note") && owns;
+  const canDelete = can(user.role, "requests:delete");
 
   const isFinancing = req.kind === "financing";
   const isService = req.kind === "service";
@@ -284,6 +285,18 @@ export default async function RequestDetailPage({
           )}
         </div>
       </div>
+
+      {canDelete && (
+        <div className="px-6 pb-10 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-crit/20 bg-crit/5 p-5">
+            <div>
+              <h2 className="text-sm font-bold text-crit">Danger zone</h2>
+              <p className="mt-0.5 text-xs text-sub">Permanently remove this request and its timeline. Linked proposals are kept but unlinked.</p>
+            </div>
+            <DeleteRequest id={id} reqRef={req.ref} />
+          </div>
+        </div>
+      )}
     </>
   );
 }
