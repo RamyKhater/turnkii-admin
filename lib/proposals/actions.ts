@@ -20,18 +20,26 @@ function lines(v: FormDataEntryValue | null): string[][] {
     .map((l) => l.split("|").map((p) => p.trim()));
 }
 
-// The image uploader (MediaRepeater) serialises to a JSON array of { image };
-// fall back to newline-separated URLs so older/pasted input still works.
-function parseImages(v: FormDataEntryValue | null): string[] {
+// The image uploader (MediaRepeater) serialises to a JSON array of { image, title };
+// fall back to newline-separated URLs so older/pasted input still works. Stored as
+// { url, title? } objects.
+function parseImages(v: FormDataEntryValue | null): { url: string; title?: string }[] {
   const raw = str(v);
   if (!raw) return [];
   try {
     const arr = JSON.parse(raw);
     if (Array.isArray(arr)) {
-      return arr.map((it) => (typeof it === "string" ? it : it?.image)).filter((u): u is string => !!u && typeof u === "string");
+      return arr
+        .map((it) => {
+          const url = typeof it === "string" ? it : it?.image ?? it?.url;
+          if (!url || typeof url !== "string") return null;
+          const title = typeof it?.title === "string" ? it.title.trim() : "";
+          return title ? { url, title } : { url };
+        })
+        .filter((x): x is { url: string; title?: string } => !!x);
     }
   } catch { /* not JSON — treat as newline URLs */ }
-  return raw.split("\n").map((l) => l.trim()).filter(Boolean);
+  return raw.split("\n").map((l) => l.trim()).filter(Boolean).map((url) => ({ url }));
 }
 
 function parseBody(formData: FormData) {

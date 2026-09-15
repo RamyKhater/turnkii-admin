@@ -86,9 +86,12 @@ export function ProposalForm({
             name="images"
             label="Reference images"
             addLabel="image"
-            initial={(p?.images ?? []).map((u) => ({ image: u }))}
+            textFields={[{ key: "title", label: "Caption", placeholder: "Caption shown on the image (optional)" }]}
+            initial={((p?.images ?? []) as (string | { url: string; title?: string })[]).map((im) =>
+              typeof im === "string" ? { image: im, title: "" } : { image: im.url, title: im.title ?? "" },
+            )}
           />
-          <p className="mt-1.5 text-xs text-sub">Upload mood / reference shots — the first image leads the gallery. JPG, PNG, WebP or iPhone HEIC; they're resized automatically.</p>
+          <p className="mt-1.5 text-xs text-sub">Upload mood / reference shots — the first image leads the gallery. Add a caption to label each one. JPG, PNG, WebP or iPhone HEIC; resized automatically.</p>
         </div>
       </Section>
 

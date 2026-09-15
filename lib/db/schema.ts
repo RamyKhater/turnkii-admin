@@ -401,7 +401,7 @@ export const proposals = pgTable("proposals", {
   styleName: text("style_name"),
   palette: text("palette"), // e.g. "Sand · Walnut · Olive"
   directionNote: text("direction_note"),
-  images: jsonb("images").$type<string[]>().default([]), // mood / reference image URLs
+  images: jsonb("images").$type<{ url: string; title?: string }[]>().default([]), // mood / reference images with optional captions
   // scope & investment
   scopeItems: jsonb("scope_items").$type<{ label: string; note?: string; price?: string }[]>().default([]),
   priceLabel: text("price_label"), // e.g. "EGP 1.2M – 1.6M"

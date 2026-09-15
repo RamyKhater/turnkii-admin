@@ -29,7 +29,9 @@ function publicShape(p: typeof proposals.$inferSelect) {
       styleName: p.styleName,
       palette: p.palette,
       note: p.directionNote,
-      images: p.images ?? [],
+      images: (p.images ?? []).map((im) =>
+        typeof im === "string" ? { url: im } : { url: im.url, title: im.title },
+      ),
     },
     scope: {
       items: p.scopeItems ?? [],
