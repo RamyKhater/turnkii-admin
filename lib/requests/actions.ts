@@ -1,4 +1,5 @@
 "use server";
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq, sql } from "drizzle-orm";
@@ -9,6 +10,7 @@ import { assertCap } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/rbac";
 import { logActivity } from "@/lib/activity";
 import { notify, notifyRoles } from "@/lib/notifications";
+import { dispatchVisitConfirmation } from "@/lib/whatsapp/requests";
 import { STATUS_META } from "@/components/ui";
 import type { User } from "@/lib/db/schema";
 
@@ -51,6 +53,13 @@ export async function updateStatus(id: number, status: RequestStatus) {
     body: `Status changed to ${STATUS_META[parsed].label}.`,
   });
   await logActivity(user.id, "request.status", "request", id, { status: parsed });
+  // Confirm the booked visit to the customer over WhatsApp (best-effort, after
+  // the response). The loaded row already carries the visit day/slot/type.
+  if (parsed === "survey_booked") {
+    after(async () => {
+      try { await dispatchVisitConfirmation(req); } catch (e) { console.error("[wa] visit confirmation failed", e); }
+    });
+  }
   revalidatePath(`/requests/${id}`);
   revalidatePath("/requests");
   revalidatePath("/dashboard");

@@ -1,4 +1,5 @@
 "use server";
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -7,6 +8,7 @@ import { getDb } from "@/lib/db";
 import { projects, projectUpdates, projectMedia, projectSignoffs, payments, notifications, properties } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
+import { dispatchProjectUpdateWhatsApp } from "@/lib/whatsapp/projects";
 import { photoQA, draftUpdateNote, rejectionToTasks } from "@/lib/ai/progress";
 import { deliveryDigest, type ProjectSignal } from "@/lib/ai/delivery";
 
@@ -164,6 +166,10 @@ export async function sendProgressUpdate(_prev: UpdateState, formData: FormData)
       body: `${proj.name}: ${d.stage}`, entity: "project", entityId: String(proj.id), href: "/portal",
     }).catch(() => {});
   }
+  // WhatsApp the project owner that a new update is live (best-effort, after response).
+  after(async () => {
+    try { await dispatchProjectUpdateWhatsApp(proj, d.stage); } catch (e) { console.error("[wa] project update failed", e); }
+  });
   await logActivity(user.id, "project.update.send", "project", d.projectId);
   revalidatePath(`/projects/${d.projectId}`);
   revalidatePath("/portal");

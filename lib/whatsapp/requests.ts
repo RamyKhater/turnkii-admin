@@ -14,6 +14,8 @@ type RequestRow = typeof requests.$inferSelect;
 export const WA_DEFAULTS = {
   customerTemplate: "request_received",
   teamTemplate: "new_lead_alert",
+  visitTemplate: "visit_confirmed",
+  projectTemplate: "project_update",
   language: "en",
 };
 
@@ -62,4 +64,31 @@ export async function dispatchRequestWhatsApp(req: RequestRow): Promise<void> {
       }
     }
   }
+}
+
+/** Format a stored visit day/slot into a friendly, human string. */
+function visitWhen(req: RequestRow): string {
+  let day = "";
+  if (req.visitDay) {
+    const d = new Date(req.visitDay);
+    day = isNaN(d.getTime())
+      ? req.visitDay
+      : d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  }
+  return [day, req.visitSlot ?? ""].filter(Boolean).join(" · ") || "the agreed time";
+}
+
+/** Confirm a booked site visit / online meeting to the customer over WhatsApp.
+ *  Fired when the request is moved to "survey booked". Off by default. */
+export async function dispatchVisitConfirmation(req: RequestRow): Promise<void> {
+  if (!req.phone) return;
+  const db = await getDb();
+  const settings = await db.select().from(siteSettings);
+  if (!isOn(settings, "notify.waVisit", false)) return;
+  const lang = val(settings, "notify.waLanguage", WA_DEFAULTS.language);
+  const tmpl = val(settings, "notify.waVisitTemplate", WA_DEFAULTS.visitTemplate);
+  const first = (req.contactName ?? "").split(" ")[0] || "there";
+  const typeLabel = req.visitType === "online" ? "online meeting" : "on-site survey";
+  //   {{1}} first name, {{2}} reference, {{3}} date · slot, {{4}} visit type
+  await sendWhatsAppTemplate(req.phone, tmpl, lang, [first, req.ref, visitWhen(req), typeLabel]);
 }

@@ -39,8 +39,12 @@ export default async function SettingsPage() {
   const waVal = (k: string, d = "") => String(rows.find((r) => r.key === k)?.value ?? "") || d;
   const waCustomer = rows.find((r) => r.key === "notify.waCustomer")?.enabled ?? false;
   const waTeam = rows.find((r) => r.key === "notify.waTeam")?.enabled ?? false;
+  const waVisit = rows.find((r) => r.key === "notify.waVisit")?.enabled ?? false;
+  const waProject = rows.find((r) => r.key === "notify.waProject")?.enabled ?? false;
   const waCustomerTemplate = waVal("notify.waCustomerTemplate", WA_DEFAULTS.customerTemplate);
   const waTeamTemplate = waVal("notify.waTeamTemplate", WA_DEFAULTS.teamTemplate);
+  const waVisitTemplate = waVal("notify.waVisitTemplate", WA_DEFAULTS.visitTemplate);
+  const waProjectTemplate = waVal("notify.waProjectTemplate", WA_DEFAULTS.projectTemplate);
   const waLanguage = waVal("notify.waLanguage", WA_DEFAULTS.language);
   const waRecipients = waVal("notify.waRecipients");
 
@@ -200,6 +204,20 @@ export default async function SettingsPage() {
               </span>
             </label>
             <label className="flex items-start gap-3">
+              <input type="checkbox" name="waVisit" defaultChecked={waVisit} className="mt-1 h-4 w-4 accent-olive" />
+              <span>
+                <span className="text-sm font-semibold">Confirm booked site visits</span>
+                <span className="block text-xs text-muted">WhatsApp the customer the date, time and type when a request is moved to “survey booked”.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3">
+              <input type="checkbox" name="waProject" defaultChecked={waProject} className="mt-1 h-4 w-4 accent-olive" />
+              <span>
+                <span className="text-sm font-semibold">Project update alerts</span>
+                <span className="block text-xs text-muted">WhatsApp the project owner whenever a progress update is shared to their portal.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3">
               <input type="checkbox" name="waTeam" defaultChecked={waTeam} className="mt-1 h-4 w-4 accent-olive" />
               <span>
                 <span className="text-sm font-semibold">WhatsApp the team</span>
@@ -208,9 +226,11 @@ export default async function SettingsPage() {
             </label>
             <Textarea label="Team WhatsApp numbers" name="waRecipients" defaultValue={waRecipients} rows={2} />
             <p className="-mt-2 text-xs text-muted">International format, comma-separated (e.g. +20 122 118 8000).</p>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Customer template" name="waCustomerTemplate" defaultValue={waCustomerTemplate} />
-              <Field label="Team template" name="waTeamTemplate" defaultValue={waTeamTemplate} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Customer receipt template" name="waCustomerTemplate" defaultValue={waCustomerTemplate} />
+              <Field label="Team alert template" name="waTeamTemplate" defaultValue={waTeamTemplate} />
+              <Field label="Visit confirmation template" name="waVisitTemplate" defaultValue={waVisitTemplate} />
+              <Field label="Project update template" name="waProjectTemplate" defaultValue={waProjectTemplate} />
               <Field label="Language code" name="waLanguage" defaultValue={waLanguage} />
             </div>
             <details className="rounded-xl border border-line bg-paper/60 px-4 py-3">
@@ -226,6 +246,16 @@ export default async function SettingsPage() {
                   <div className="font-bold">{waTeamTemplate} — team</div>
                   <div className="mt-1 text-muted">{"{{1}}"} = type · {"{{2}}"} = reference · {"{{3}}"} = name · phone</div>
                   <div className="mt-1.5 font-mono text-ink">New {"{{1}}"} on Turnkii: {"{{2}}"} — {"{{3}}"}. Open the admin to follow up.</div>
+                </div>
+                <div className="rounded-lg bg-white p-3">
+                  <div className="font-bold">{waVisitTemplate} — site-visit confirmation</div>
+                  <div className="mt-1 text-muted">{"{{1}}"} = first name · {"{{2}}"} = reference · {"{{3}}"} = date · time · {"{{4}}"} = visit type</div>
+                  <div className="mt-1.5 font-mono text-ink">Hi {"{{1}}"}, your Turnkii {"{{4}}"} ({"{{2}}"}) is booked for {"{{3}}"}. We’ll call if anything changes — reply here to reschedule.</div>
+                </div>
+                <div className="rounded-lg bg-white p-3">
+                  <div className="font-bold">{waProjectTemplate} — project update</div>
+                  <div className="mt-1 text-muted">{"{{1}}"} = owner first name · {"{{2}}"} = project name · {"{{3}}"} = update stage</div>
+                  <div className="mt-1.5 font-mono text-ink">Hi {"{{1}}"}, there’s a new update on {"{{2}}"}: {"{{3}}"}. Open your Turnkii portal to view photos and sign off.</div>
                 </div>
               </div>
             </details>

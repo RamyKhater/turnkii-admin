@@ -130,14 +130,20 @@ export async function updateWhatsapp(formData: FormData) {
 
   const waCustomer = formData.get("waCustomer") != null;
   const waTeam = formData.get("waTeam") != null;
+  const waVisit = formData.get("waVisit") != null;
+  const waProject = formData.get("waProject") != null;
   const waRecipients = String(formData.get("waRecipients") ?? "")
     .split(/[,;\s]+/).map((s) => s.replace(/[^\d+]/g, "")).filter((s) => s.replace(/\D/g, "").length >= 8);
   await put("notify.waCustomer", "WhatsApp confirmation to the submitter", waCustomer);
   await put("notify.waTeam", "WhatsApp alert to the team", waTeam);
+  await put("notify.waVisit", "WhatsApp site-visit confirmation to the customer", waVisit);
+  await put("notify.waProject", "WhatsApp project-update to the owner", waProject);
   await put("notify.waCustomerTemplate", "WhatsApp customer template name", true, str("waCustomerTemplate", WA_DEFAULTS.customerTemplate));
   await put("notify.waTeamTemplate", "WhatsApp team template name", true, str("waTeamTemplate", WA_DEFAULTS.teamTemplate));
+  await put("notify.waVisitTemplate", "WhatsApp visit template name", true, str("waVisitTemplate", WA_DEFAULTS.visitTemplate));
+  await put("notify.waProjectTemplate", "WhatsApp project template name", true, str("waProjectTemplate", WA_DEFAULTS.projectTemplate));
   await put("notify.waLanguage", "WhatsApp template language", true, str("waLanguage", WA_DEFAULTS.language));
   await put("notify.waRecipients", "WhatsApp team recipients", true, waRecipients.join(", "));
-  await logActivity(user.id, "settings.whatsapp", "setting", "notify", { waCustomer, waTeam, recipients: waRecipients.length });
+  await logActivity(user.id, "settings.whatsapp", "setting", "notify", { waCustomer, waTeam, waVisit, waProject, recipients: waRecipients.length });
   revalidatePath("/settings");
 }
