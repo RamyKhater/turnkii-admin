@@ -46,10 +46,18 @@ export async function dispatchRequestWhatsApp(req: RequestRow): Promise<void> {
   const first = (req.contactName ?? "").split(" ")[0] || "there";
   const kindLabel = KIND_LABEL[req.kind ?? "brief"] ?? "request";
 
-  // 1) confirmation to the submitter
-  if (req.phone && isOn(settings, "notify.waCustomer", false)) {
-    const tmpl = val(settings, "notify.waCustomerTemplate", WA_DEFAULTS.customerTemplate);
-    await sendWhatsAppTemplate(req.phone, tmpl, lang, [first, req.ref]);
+  // 1) confirmation to the submitter. If they picked a visit slot and visit
+  //    confirmations are on, send the dated visit confirmation right away;
+  //    otherwise the generic receipt.
+  if (req.phone) {
+    if (req.visitDay && isOn(settings, "notify.waVisit", false)) {
+      const tmpl = val(settings, "notify.waVisitTemplate", WA_DEFAULTS.visitTemplate);
+      const typeLabel = req.visitType === "online" ? "online meeting" : "on-site survey";
+      await sendWhatsAppTemplate(req.phone, tmpl, lang, [first, req.ref, visitWhen(req), typeLabel]);
+    } else if (isOn(settings, "notify.waCustomer", false)) {
+      const tmpl = val(settings, "notify.waCustomerTemplate", WA_DEFAULTS.customerTemplate);
+      await sendWhatsAppTemplate(req.phone, tmpl, lang, [first, req.ref]);
+    }
   }
 
   // 2) alert to the team numbers
