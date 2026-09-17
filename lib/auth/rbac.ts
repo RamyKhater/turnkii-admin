@@ -30,6 +30,7 @@ export type Capability =
   | "projects:manage"
   | "pricing:manage"
   | "proposals:manage"
+  | "showcases:manage"
   | "tasks:manage"
   | "settings:manage"
   | "users:manage";
@@ -39,16 +40,16 @@ const MATRIX: Record<Role, Capability[]> = {
     "requests:view_all", "requests:create", "requests:assign", "requests:update",
     "requests:delete", "requests:note", "analytics:view", "content:edit",
     "properties:view", "properties:edit", "payments:view", "payments:manage",
-    "projects:manage", "pricing:manage", "proposals:manage", "tasks:manage",
+    "projects:manage", "pricing:manage", "proposals:manage", "showcases:manage", "tasks:manage",
     "settings:manage", "users:manage",
   ],
-  product_manager: ["requests:view_all", "analytics:view", "content:edit", "properties:view", "payments:view", "pricing:manage", "tasks:manage"],
+  product_manager: ["requests:view_all", "analytics:view", "content:edit", "properties:view", "payments:view", "pricing:manage", "showcases:manage", "tasks:manage"],
   ops_manager: [
     "requests:view_all", "requests:create", "requests:assign", "requests:update",
     "requests:note", "analytics:view", "properties:view", "properties:edit",
-    "payments:view", "payments:manage", "projects:manage", "proposals:manage", "tasks:manage",
+    "payments:view", "payments:manage", "projects:manage", "proposals:manage", "showcases:manage", "tasks:manage",
   ],
-  agent: ["requests:view_assigned", "requests:update", "requests:note", "proposals:manage"],
+  agent: ["requests:view_assigned", "requests:update", "requests:note", "proposals:manage", "showcases:manage"],
   content_editor: ["content:edit"],
 };
 
@@ -59,7 +60,7 @@ export function can(role: Role, cap: Capability): boolean {
 /** Whether a role can reach a given section of the app at all. */
 export type Section =
   | "dashboard" | "requests" | "properties" | "projects" | "pricing" | "payments"
-  | "proposals" | "tasks" | "content" | "users" | "settings";
+  | "proposals" | "showcases" | "tasks" | "content" | "users" | "settings";
 
 export function canAccessSection(role: Role, section: Section): boolean {
   switch (section) {
@@ -75,6 +76,8 @@ export function canAccessSection(role: Role, section: Section): boolean {
       return can(role, "pricing:manage");
     case "proposals":
       return can(role, "proposals:manage");
+    case "showcases":
+      return can(role, "showcases:manage");
     case "tasks":
       return true; // everyone has a personal "my tasks" view; managers manage all
     case "payments":

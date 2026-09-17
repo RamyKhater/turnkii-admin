@@ -454,10 +454,35 @@ export const tasks = pgTable("tasks", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Sample-work showcases. Admin-built portfolios of finishing / furniture
+//    work, shared with a client via a private token (like proposals) but built
+//    to inspect quality: each image carries a category, caption, a craftsmanship
+//    note and a materials spec, and the viewer supports deep zoom.
+export const showcaseStatusEnum = pgEnum("showcase_status", ["draft", "shared", "viewed", "archived"]);
+
+export const showcases = pgTable("showcases", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(), // unguessable share token, generated once
+  title: text("title").notNull(),
+  subtitle: text("subtitle"), // location / project descriptor, e.g. "3-bed villa · New Cairo"
+  intro: text("intro"),
+  status: showcaseStatusEnum("status").notNull().default("draft"),
+  items: jsonb("items").$type<
+    { image: string; before?: string; category?: string; caption?: string; note?: string; spec?: string }[]
+  >().default([]),
+  ctaLabel: text("cta_label"),
+  ctaHref: text("cta_href"),
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  viewedAt: timestamp("viewed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 export type Proposal = typeof proposals.$inferSelect;
+export type Showcase = typeof showcases.$inferSelect;
 export type Request = typeof requests.$inferSelect;
 export type RequestNote = typeof requestNotes.$inferSelect;
 export type Style = typeof styles.$inferSelect;
