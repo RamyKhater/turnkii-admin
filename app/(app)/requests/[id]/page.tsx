@@ -9,6 +9,7 @@ import { PageHeader, Card, StatusBadge, Avatar } from "@/components/ui";
 import { StatusControl, AssignControl, NoteForm, DeleteRequest } from "@/components/requests/controls";
 import { TasksPanel } from "@/components/tasks/tasks-panel";
 import { SurveyPanel } from "@/components/survey/survey-panel";
+import { StartProjectButton } from "@/components/projects/start-from-request";
 import { firstResponseSla, resolutionSla, SLA_STYLE } from "@/lib/sla";
 import { getSiteConfig } from "@/lib/settings";
 
@@ -65,6 +66,7 @@ export default async function RequestDetailPage({
     ? await db.select({ id: projects.id, name: projects.name }).from(projects).orderBy(desc(projects.createdAt)).limit(200)
     : [];
   const surveyLinkedProjectId = surveyRows.find((f) => f.projectId)?.projectId ?? null;
+  const canStartProject = can(user.role, "payments:manage");
 
   const { sla } = await getSiteConfig();
   const fr = firstResponseSla(req, sla.firstResponseHours);
@@ -181,8 +183,19 @@ export default async function RequestDetailPage({
 
           {canUpdate ? (
             <Card className="p-6">
-              <h2 className="text-sm font-bold">Survey outcome</h2>
-              <p className="mt-1 text-sm text-sub">Attach the site-survey documents and photos — measurements, reports, scope. Link them to a project once it starts.</p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold">Survey outcome</h2>
+                  <p className="mt-1 text-sm text-sub">Attach the site-survey documents and photos — measurements, reports, scope. Link them to a project once it starts.</p>
+                </div>
+                {canStartProject && (
+                  surveyLinkedProjectId ? (
+                    <Link href={`/projects/${surveyLinkedProjectId}`} className="shrink-0 rounded-full border border-line px-4 py-2 text-sm font-semibold hover:border-ink">Open project →</Link>
+                  ) : (
+                    <StartProjectButton requestId={id} />
+                  )
+                )}
+              </div>
               <div className="mt-4">
                 <SurveyPanel
                   requestId={id}
