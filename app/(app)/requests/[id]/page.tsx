@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db";
 import { requests, requestNotes, users, styles, proposals } from "@/lib/db/schema";
 import { PageHeader, Card, StatusBadge, Avatar } from "@/components/ui";
 import { StatusControl, AssignControl, NoteForm, DeleteRequest } from "@/components/requests/controls";
+import { TasksPanel } from "@/components/tasks/tasks-panel";
 import { firstResponseSla, resolutionSla, SLA_STYLE } from "@/lib/sla";
 import { getSiteConfig } from "@/lib/settings";
 
@@ -283,6 +284,8 @@ export default async function RequestDetailPage({
               </div>
             </Card>
           )}
+
+          <TasksPanel entityType="request" entityId={id} back={`/requests/${id}`} />
         </div>
       </div>
 

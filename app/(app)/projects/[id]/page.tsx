@@ -12,6 +12,7 @@ import { ProjectForm } from "@/components/projects/project-form";
 import { updateProject } from "@/lib/projects/actions";
 import { SendUpdateForm } from "@/components/projects/send-update";
 import { ProgressTimeline, type TLUpdate } from "@/components/projects/progress-timeline";
+import { TasksPanel } from "@/components/tasks/tasks-panel";
 
 const MEDIA_LIBRARY = [
   { url: "https://turnkii.app/assets/style-warm.jpg", label: "Living room" },
@@ -148,6 +149,8 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
             <div className="mt-4"><SendUpdateForm projectId={pr.id} library={MEDIA_LIBRARY} /></div>
           </Card>
         )}
+
+        <TasksPanel entityType="project" entityId={pr.id} back={`/projects/${pr.id}`} />
 
         <div>
           <h2 className="mb-3 text-sm font-bold">Shared media &amp; client decisions</h2>

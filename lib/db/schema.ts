@@ -7,6 +7,7 @@ import {
   timestamp,
   jsonb,
   pgEnum,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 export const roleEnum = pgEnum("role", [
@@ -32,7 +33,9 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
-  role: roleEnum("role").notNull().default("agent"),
+  role: roleEnum("role").notNull().default("agent"), // access level (permissions)
+  teamId: integer("team_id").references((): AnyPgColumn => teams.id, { onDelete: "set null" }),
+  title: text("title"), // job title / role on the team, e.g. "Lead designer"
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -423,7 +426,37 @@ export const proposals = pgTable("proposals", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Teams (Design, Operations, Projects, …). Users belong to a team and carry
+//    a title; their access is still governed by `role`.
+export const teams = pgTable("teams", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── Tasks — work items assigned to a team member, optionally linked to an open
+//    request, a project, or a proposal.
+export const taskStatusEnum = pgEnum("task_status", ["open", "in_progress", "blocked", "done"]);
+
+export const tasks = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  notes: text("notes"),
+  status: taskStatusEnum("status").notNull().default("open"),
+  priority: text("priority").notNull().default("normal"), // low | normal | high
+  assigneeId: integer("assignee_id").references(() => users.id, { onDelete: "set null" }),
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  entityType: text("entity_type"), // request | project | proposal
+  entityId: integer("entity_id"),
+  dueDate: timestamp("due_date", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
+export type Team = typeof teams.$inferSelect;
+export type Task = typeof tasks.$inferSelect;
 export type Proposal = typeof proposals.$inferSelect;
 export type Request = typeof requests.$inferSelect;
 export type RequestNote = typeof requestNotes.$inferSelect;

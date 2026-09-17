@@ -10,6 +10,7 @@ import { ProposalForm } from "@/components/proposals/proposal-form";
 import { CopyLink } from "@/components/proposals/copy-link";
 import { proposalUrl } from "@/lib/proposals/link";
 import { setProposalStatus, deleteProposal } from "@/lib/proposals/actions";
+import { TasksPanel } from "@/components/tasks/tasks-panel";
 
 const STATUS: Record<string, string> = {
   draft: "bg-sand text-sub",
@@ -119,6 +120,10 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
             <p className="mt-3 text-xs text-crit">Archived — the link now returns “not found” to anyone who opens it.</p>
           )}
         </Card>
+      </div>
+
+      <div className="px-6 lg:px-8">
+        <TasksPanel entityType="proposal" entityId={id} back={`/proposals/${id}`} />
       </div>
 
       <ProposalForm proposal={p} requests={reqRows} />

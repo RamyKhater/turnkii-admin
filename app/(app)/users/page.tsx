@@ -1,15 +1,17 @@
 import { asc } from "drizzle-orm";
 import { requireCap } from "@/lib/auth/guard";
 import { getDb } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { users, teams } from "@/lib/db/schema";
 import { ROLES } from "@/lib/auth/rbac";
 import { PageHeader, Card, Avatar } from "@/components/ui";
-import { RoleSelect, ActiveToggle, CreateUserForm } from "@/components/users/controls";
+import { RoleSelect, ActiveToggle, TeamSelect, CreateUserForm, CreateTeamForm } from "@/components/users/controls";
 
 export default async function UsersPage() {
   const me = await requireCap("users:manage");
   const db = await getDb();
   const rows = await db.select().from(users).orderBy(asc(users.name));
+  const teamRows = await db.select().from(teams).orderBy(asc(teams.name));
+  const teamOpts = teamRows.map((t) => ({ id: t.id, name: t.name }));
 
   return (
     <>
@@ -19,19 +21,36 @@ export default async function UsersPage() {
         sub="Create accounts and set what each person can do. Roles are enforced across the app."
       />
       <div className="space-y-5 p-6 lg:p-8">
-        <Card className="p-6">
-          <h2 className="text-sm font-bold">Add a team member</h2>
-          <p className="mb-4 mt-1 text-xs text-sub">They can sign in immediately with the temporary password.</p>
-          <CreateUserForm />
-        </Card>
+        <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
+          <Card className="p-6">
+            <h2 className="text-sm font-bold">Add a team member</h2>
+            <p className="mb-4 mt-1 text-xs text-sub">Pick their team, title and access level. They can sign in immediately with the temporary password.</p>
+            <CreateUserForm teams={teamOpts} />
+          </Card>
+          <Card className="p-6">
+            <h2 className="text-sm font-bold">Teams</h2>
+            <p className="mb-4 mt-1 text-xs text-sub">Group people by team — e.g. Design, Operations, Projects.</p>
+            <div className="mb-4 flex flex-wrap gap-2">
+              {teamRows.length === 0 ? (
+                <span className="text-xs text-muted">No teams yet.</span>
+              ) : (
+                teamRows.map((t) => (
+                  <span key={t.id} className="rounded-full bg-sand px-3 py-1 text-xs font-semibold text-sub">{t.name}</span>
+                ))
+              )}
+            </div>
+            <CreateTeamForm />
+          </Card>
+        </div>
 
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="w-full min-w-[820px] text-sm">
               <thead>
                 <tr className="border-b border-line bg-sand/40 text-left text-xs uppercase tracking-wider text-muted">
                   <th className="px-5 py-3 font-bold">Person</th>
-                  <th className="px-3 py-3 font-bold">Role</th>
+                  <th className="px-3 py-3 font-bold">Team</th>
+                  <th className="px-3 py-3 font-bold">Access level</th>
                   <th className="px-3 py-3 font-bold">State</th>
                   <th className="px-5 py-3 font-bold">Joined</th>
                 </tr>
@@ -48,9 +67,12 @@ export default async function UsersPage() {
                             <div className="font-bold">
                               {u.name} {isSelf && <span className="ml-1 rounded-full bg-lime px-1.5 py-0.5 text-[10px] font-bold uppercase text-ink">You</span>}
                             </div>
-                            <div className="text-xs text-muted">{u.email}</div>
+                            <div className="text-xs text-muted">{u.email}{u.title ? ` · ${u.title}` : ""}</div>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        <TeamSelect id={u.id} teamId={u.teamId} teams={teamOpts} />
                       </td>
                       <td className="px-3 py-3">
                         <RoleSelect id={u.id} role={u.role} disabled={isSelf} />
