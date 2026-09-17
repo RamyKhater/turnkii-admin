@@ -16,16 +16,38 @@ export function MediaRepeater({
   textFields = [],
   initial = [],
   addLabel = "item",
+  aiDraft,
+  aiLabel = "✨ AI draft",
 }: {
   name: string;
   label: string;
   textFields?: TextField[];
   initial?: Item[];
   addLabel?: string;
+  /** Optional: draft this item's text fields from its image with one click. */
+  aiDraft?: (imageUrl: string) => Promise<Record<string, string | undefined>>;
+  aiLabel?: string;
 }) {
   const [items, setItems] = useState<Item[]>(initial);
   const [busy, setBusy] = useState<number | null>(null);
+  const [aiBusy, setAiBusy] = useState<number | null>(null);
   const fileRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  async function draft(i: number, image: string) {
+    if (!aiDraft) return;
+    setAiBusy(i);
+    try {
+      const out = await aiDraft(image);
+      const patch: Record<string, string> = {};
+      textFields.forEach((f) => { const v = out?.[f.key]; if (typeof v === "string" && v) patch[f.key] = v; });
+      if (Object.keys(patch).length) update(i, patch);
+      else alert("AI couldn't draft this one — add the details manually, or check the image is uploaded.");
+    } catch {
+      alert("AI draft failed. Please try again.");
+    } finally {
+      setAiBusy(null);
+    }
+  }
 
   const update = (i: number, patch: Record<string, string>) =>
     setItems((prev) => prev.map((it, j) => (j === i ? { ...it, ...patch } : it)));
@@ -83,6 +105,16 @@ export function MediaRepeater({
                 className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(i, f); }}
               />
+              {aiDraft && it.image && (
+                <button
+                  type="button"
+                  onClick={() => draft(i, it.image)}
+                  disabled={aiBusy === i}
+                  className="rounded-full border border-olive/40 bg-lime/15 px-3 py-1 text-xs font-semibold text-olive hover:bg-lime/30 disabled:opacity-60"
+                >
+                  {aiBusy === i ? "Drafting…" : aiLabel}
+                </button>
+              )}
             </div>
             <div className="flex flex-1 flex-col gap-2">
               {textFields.map((f) => (

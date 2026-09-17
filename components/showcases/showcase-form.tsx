@@ -1,5 +1,6 @@
 import type { Showcase } from "@/lib/db/schema";
 import { createShowcase, updateShowcase } from "@/lib/showcases/actions";
+import { aiDraftShowcaseImage } from "@/lib/showcases/ai";
 import { MediaRepeater } from "@/components/content/media-repeater";
 
 const field = "w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-ink";
@@ -39,12 +40,13 @@ export function ShowcaseForm({ showcase }: { showcase?: Showcase }) {
 
       <div className="rounded-2xl border border-line bg-paper p-6">
         <h2 className="font-serif text-xl">Work images</h2>
-        <p className="mt-1 text-sm text-sub">Upload high-resolution photos — clients can zoom right in. For each, add a category (e.g. <b>Finishing</b> / <b>Furniture</b>), a caption, a craftsmanship note and the materials/spec to highlight the quality.</p>
+        <p className="mt-1 text-sm text-sub">Upload high-resolution photos — clients can zoom right in. Add a category, caption, craftsmanship note and materials/spec for each, or hit <b>✨ AI draft</b> and let AI describe the shot from the image.</p>
         <div className="mt-4">
           <MediaRepeater
             name="items"
             label="Images"
             addLabel="image"
+            aiDraft={aiDraftShowcaseImage}
             textFields={[
               { key: "category", label: "Category", placeholder: "Finishing / Furniture / Kitchen…" },
               { key: "caption", label: "Caption", placeholder: "Living room — book-matched veneer wall" },
