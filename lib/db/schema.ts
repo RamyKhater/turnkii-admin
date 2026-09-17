@@ -7,6 +7,7 @@ import {
   timestamp,
   jsonb,
   pgEnum,
+  uniqueIndex,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
@@ -477,6 +478,19 @@ export const showcases = pgTable("showcases", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Per-image star ratings left by showcase viewers. One vote per anonymous voter
+// per image (upserted), so a viewer can change their mind. Feeds the per-image
+// average shown in the viewer and the overall rating on the homepage.
+export const showcaseRatings = pgTable("showcase_ratings", {
+  id: serial("id").primaryKey(),
+  showcaseId: integer("showcase_id").notNull().references(() => showcases.id, { onDelete: "cascade" }),
+  itemIndex: integer("item_index").notNull(),
+  value: integer("value").notNull(), // 1..5
+  voter: text("voter").notNull(),    // anonymous client id (from the viewer's localStorage)
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("showcase_rating_voter_uq").on(t.showcaseId, t.itemIndex, t.voter)]);
 
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;

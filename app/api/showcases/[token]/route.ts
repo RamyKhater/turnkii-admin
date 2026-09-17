@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { showcases } from "@/lib/db/schema";
+import { showcases, showcaseRatings } from "@/lib/db/schema";
 
 // Public, token-gated: the marketing site's hidden /w page fetches this by the
 // unguessable token. CORS-open so the static site (a different origin) can read it.
@@ -32,12 +32,24 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
       .where(eq(showcases.id, row.id));
   }
 
+  // Per-image rating aggregates (avg + count), keyed by item index.
+  const agg = await db
+    .select({ idx: showcaseRatings.itemIndex, avg: sql<number>`avg(${showcaseRatings.value})::float`, count: sql<number>`count(*)::int` })
+    .from(showcaseRatings)
+    .where(eq(showcaseRatings.showcaseId, row.id))
+    .groupBy(showcaseRatings.itemIndex);
+  const byIdx = new Map(agg.map((a) => [a.idx, { avg: Math.round(a.avg * 10) / 10, count: a.count }]));
+
+  const items = (row.items ?? [])
+    .filter((i) => i && i.image)
+    .map((i, idx) => ({ ...i, rating: byIdx.get(idx) ?? { avg: 0, count: 0 } }));
+
   return Response.json(
     {
       title: row.title,
       subtitle: row.subtitle,
       intro: row.intro,
-      items: (row.items ?? []).filter((i) => i && i.image),
+      items,
       cta: { label: row.ctaLabel, href: row.ctaHref },
     },
     { status: 200, headers: CORS },
