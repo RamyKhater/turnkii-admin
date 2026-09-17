@@ -492,9 +492,27 @@ export const showcaseRatings = pgTable("showcase_ratings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("showcase_rating_voter_uq").on(t.showcaseId, t.itemIndex, t.voter)]);
 
+// ── Survey outcome files. Documents (measurements, reports) and photos captured
+//    during a site survey, attached to a request. Optionally linked to a project
+//    once it starts, and exposable to an external system later via their URLs.
+export const surveyFiles = pgTable("survey_files", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull().references(() => requests.id, { onDelete: "cascade" }),
+  projectId: integer("project_id").references((): AnyPgColumn => projects.id, { onDelete: "set null" }),
+  kind: text("kind").notNull().default("document"), // image | document
+  url: text("url").notNull(),
+  name: text("name").notNull(),
+  contentType: text("content_type"),
+  size: integer("size"), // bytes
+  note: text("note"),
+  uploadedBy: integer("uploaded_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
+export type SurveyFile = typeof surveyFiles.$inferSelect;
 export type Proposal = typeof proposals.$inferSelect;
 export type Showcase = typeof showcases.$inferSelect;
 export type Request = typeof requests.$inferSelect;

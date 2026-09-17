@@ -4,10 +4,11 @@ import { eq, desc } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/guard";
 import { canAccessSection, can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { requests, requestNotes, users, styles, proposals } from "@/lib/db/schema";
+import { requests, requestNotes, users, styles, proposals, surveyFiles, projects } from "@/lib/db/schema";
 import { PageHeader, Card, StatusBadge, Avatar } from "@/components/ui";
 import { StatusControl, AssignControl, NoteForm, DeleteRequest } from "@/components/requests/controls";
 import { TasksPanel } from "@/components/tasks/tasks-panel";
+import { SurveyPanel } from "@/components/survey/survey-panel";
 import { firstResponseSla, resolutionSla, SLA_STYLE } from "@/lib/sla";
 import { getSiteConfig } from "@/lib/settings";
 
@@ -57,6 +58,13 @@ export default async function RequestDetailPage({
         .where(eq(proposals.requestId, id))
         .orderBy(desc(proposals.createdAt))
     : [];
+
+  const surveyRows = await db.select().from(surveyFiles).where(eq(surveyFiles.requestId, id)).orderBy(desc(surveyFiles.createdAt));
+  const canLinkSurvey = can(user.role, "projects:manage");
+  const projectRows = canLinkSurvey
+    ? await db.select({ id: projects.id, name: projects.name }).from(projects).orderBy(desc(projects.createdAt)).limit(200)
+    : [];
+  const surveyLinkedProjectId = surveyRows.find((f) => f.projectId)?.projectId ?? null;
 
   const { sla } = await getSiteConfig();
   const fr = firstResponseSla(req, sla.firstResponseHours);
@@ -170,6 +178,34 @@ export default async function RequestDetailPage({
               <div className="mt-5 rounded-xl bg-sand/50 p-4 text-sm text-sub">{req.message}</div>
             )}
           </Card>
+
+          {canUpdate ? (
+            <Card className="p-6">
+              <h2 className="text-sm font-bold">Survey outcome</h2>
+              <p className="mt-1 text-sm text-sub">Attach the site-survey documents and photos — measurements, reports, scope. Link them to a project once it starts.</p>
+              <div className="mt-4">
+                <SurveyPanel
+                  requestId={id}
+                  files={surveyRows}
+                  projects={projectRows}
+                  linkedProjectId={surveyLinkedProjectId}
+                  canLink={canLinkSurvey}
+                />
+              </div>
+            </Card>
+          ) : surveyRows.length > 0 ? (
+            <Card className="p-6">
+              <h2 className="text-sm font-bold">Survey outcome</h2>
+              <ul className="mt-3 space-y-2">
+                {surveyRows.map((f) => (
+                  <li key={f.id}>
+                    <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-ink hover:text-olive">{f.name}</a>
+                    {f.note && <span className="ml-2 text-xs text-muted">{f.note}</span>}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
 
           <Card className="p-6">
             <h2 className="text-sm font-bold">Activity timeline</h2>

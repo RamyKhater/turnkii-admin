@@ -4,7 +4,7 @@ import { eq, asc, desc, inArray } from "drizzle-orm";
 import { requireCap } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { projects, payments, properties, projectUpdates, projectMedia, projectSignoffs, styles } from "@/lib/db/schema";
+import { projects, payments, properties, projectUpdates, projectMedia, projectSignoffs, styles, surveyFiles } from "@/lib/db/schema";
 import { PageHeader, Card, StatTile } from "@/components/ui";
 import { fmtEGP, summarize, KIND_LABEL } from "@/lib/payments";
 import { PaymentActions, PaymentStateBadge, AddPaymentForm } from "@/components/payments/controls";
@@ -37,6 +37,7 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
   const updateIds = updates.map((u) => u.id);
   const media = updateIds.length ? await db.select().from(projectMedia).where(inArray(projectMedia.updateId, updateIds)).orderBy(asc(projectMedia.sort)) : [];
   const signoffs = updateIds.length ? await db.select().from(projectSignoffs).where(inArray(projectSignoffs.updateId, updateIds)) : [];
+  const surveyDocs = await db.select().from(surveyFiles).where(eq(surveyFiles.projectId, pr.id)).orderBy(desc(surveyFiles.createdAt));
   const mediaByU = new Map<number, typeof media>();
   for (const m of media) { const a = mediaByU.get(m.updateId) ?? []; a.push(m); mediaByU.set(m.updateId, a); }
   const soByU = new Map(signoffs.map((s) => [s.updateId, s]));
@@ -147,6 +148,21 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
             <h2 className="text-sm font-bold">Send a progress update</h2>
             <p className="text-xs text-sub">Share photos and video with the client. Each item needs their acceptance before the milestone can be signed.</p>
             <div className="mt-4"><SendUpdateForm projectId={pr.id} library={MEDIA_LIBRARY} /></div>
+          </Card>
+        )}
+
+        {surveyDocs.length > 0 && (
+          <Card className="p-5 lg:p-6">
+            <h2 className="text-sm font-bold">Survey outcome</h2>
+            <p className="text-xs text-sub">Documents and photos captured during the site survey, carried over from the request.</p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {surveyDocs.map((f) => (
+                <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-line p-3 hover:border-ink">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-sand text-base">{(f.contentType ?? "").startsWith("image/") || f.kind === "image" ? "🖼" : "📄"}</span>
+                  <span className="min-w-0"><span className="block truncate text-sm font-semibold text-ink">{f.name}</span>{f.note && <span className="block truncate text-xs text-muted">{f.note}</span>}</span>
+                </a>
+              ))}
+            </div>
           </Card>
         )}
 
