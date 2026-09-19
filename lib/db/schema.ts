@@ -533,3 +533,21 @@ export type Notification = typeof notifications.$inferSelect;
 export type SiteSetting = typeof siteSettings.$inferSelect;
 export type Role = User["role"];
 export type RequestStatus = Request["status"];
+
+// ─── Scope of Work (filled by flpp, shared to the customer by token) ─────────
+// flpp POSTs the filled SoW to /api/flpp/sow; the hidden /sow customer page on
+// the marketing site fetches it by token from /api/sow/[token]. Same tokened
+// customer-share model as `proposals`.
+export const scopeOfWork = pgTable("scope_of_work", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(), // unguessable share token (from flpp)
+  docRef: text("doc_ref").notNull(),
+  requestRef: text("request_ref"), // originating Turnkii request (TRN/TK-…)
+  ticketRef: text("ticket_ref"), // flpp execution ticket (FLP-…)
+  status: text("status").notNull().default("shared"), // shared | viewed
+  data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+  customerUrl: text("customer_url"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type ScopeOfWork = typeof scopeOfWork.$inferSelect;
