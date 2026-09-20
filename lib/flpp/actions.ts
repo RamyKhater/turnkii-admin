@@ -45,6 +45,20 @@ export async function acceptSow(requestId: number, token: string) {
   return { ok: true, customerUrl: sow.customerUrl };
 }
 
+/** Attach (or detach) the shared SoW to a project so it lives on the project
+ *  record. Manual picker — links to an existing project, no auto-creation. */
+export async function attachSowToProject(requestId: number, token: string, projectId: number | null) {
+  const user = await assertCap("projects:manage");
+  const db = await getDb();
+  const [sow] = await db.select().from(scopeOfWork).where(eq(scopeOfWork.token, token)).limit(1);
+  if (!sow) throw new Error("Scope of Work not found.");
+  await db.update(scopeOfWork).set({ projectId, updatedAt: new Date() }).where(eq(scopeOfWork.token, token));
+  await logActivity(user.id, "flpp.sow_attach_project", "scope_of_work", sow.id, { requestId, projectId });
+  revalidatePath(`/requests/${requestId}`);
+  if (projectId) revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
 const editSchema = z.object({
   requestId: z.coerce.number().int(),
   token: z.string().min(8),
