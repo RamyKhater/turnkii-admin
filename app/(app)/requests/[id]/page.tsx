@@ -4,9 +4,10 @@ import { eq, desc } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/guard";
 import { canAccessSection, can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { requests, requestNotes, users, styles, proposals, surveyFiles, projects } from "@/lib/db/schema";
+import { requests, requestNotes, users, styles, proposals, surveyFiles, projects, scopeOfWork } from "@/lib/db/schema";
 import { PageHeader, Card, StatusBadge, Avatar } from "@/components/ui";
 import { StatusControl, AssignControl, NoteForm, DeleteRequest } from "@/components/requests/controls";
+import { ShareSurveyButton, SowReviewPanel } from "@/components/flpp/sow-review";
 import { TasksPanel } from "@/components/tasks/tasks-panel";
 import { SurveyPanel } from "@/components/survey/survey-panel";
 import { StartProjectButton } from "@/components/projects/start-from-request";
@@ -67,6 +68,14 @@ export default async function RequestDetailPage({
     : [];
   const surveyLinkedProjectId = surveyRows.find((f) => f.projectId)?.projectId ?? null;
   const canStartProject = can(user.role, "payments:manage");
+
+  // flpp Scope-of-Work handoff: share the survey to flpp, then review the
+  // AI-drafted SoW flpp shares back (Accept → customer link, or Request edit).
+  const canFlpp = can(user.role, "projects:manage");
+  const surveyDone = surveyRows.length > 0 || notes.some((n) => n.kind === "survey");
+  const [sow] = canFlpp
+    ? await db.select().from(scopeOfWork).where(eq(scopeOfWork.requestRef, req.ref)).orderBy(desc(scopeOfWork.id)).limit(1)
+    : [undefined];
 
   const { sla } = await getSiteConfig();
   const fr = firstResponseSla(req, sla.firstResponseHours);
@@ -219,6 +228,36 @@ export default async function RequestDetailPage({
               </ul>
             </Card>
           ) : null}
+
+          {canFlpp && (
+            <Card className="p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold">Scope of Work · flpp</h2>
+                  <p className="mt-1 text-sm text-sub">
+                    Share the survey with flpp to AI-draft the Scope of Work, then review what flpp sends back — accept to share with the customer, or request edits.
+                  </p>
+                </div>
+                <ShareSurveyButton requestId={id} sharedAt={req.flppSharedAt} ready={surveyDone} />
+              </div>
+              <div className="mt-4">
+                {sow ? (
+                  <SowReviewPanel
+                    requestId={id}
+                    token={sow.token}
+                    docRef={sow.docRef}
+                    status={sow.status}
+                    comments={sow.comments ?? []}
+                    customerUrl={sow.customerUrl}
+                  />
+                ) : req.flppSharedAt ? (
+                  <p className="rounded-xl bg-sand/50 p-4 text-sm text-sub">Shared with flpp — awaiting the AI-drafted Scope of Work.</p>
+                ) : !surveyDone ? (
+                  <p className="rounded-xl bg-sand/50 p-4 text-sm text-muted">Attach survey files or log a survey note to enable sharing.</p>
+                ) : null}
+              </div>
+            </Card>
+          )}
 
           <Card className="p-6">
             <h2 className="text-sm font-bold">Activity timeline</h2>
