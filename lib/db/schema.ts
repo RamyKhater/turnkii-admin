@@ -95,6 +95,9 @@ export const requests = pgTable("requests", {
   expEmail: text("exp_email"), // email-required A/B arm: 'A' (control) | 'B' (email required)
   firstResponseAt: timestamp("first_response_at", { withTimezone: true }),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  // When operations shared this request's survey outcome + notes with flpp so it
+  // can AI-draft the Scope of Work. Null until "Share survey with flpp" is used.
+  flppSharedAt: timestamp("flpp_shared_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -534,17 +537,30 @@ export type SiteSetting = typeof siteSettings.$inferSelect;
 export type Role = User["role"];
 export type RequestStatus = Request["status"];
 
-// ─── Scope of Work (filled by flpp, shared to the customer by token) ─────────
-// flpp POSTs the filled SoW to /api/flpp/sow; the hidden /sow customer page on
-// the marketing site fetches it by token from /api/sow/[token]. Same tokened
-// customer-share model as `proposals`.
+// ─── Scope of Work (AI-drafted by flpp, reviewed here, shared to the customer) ─
+// Workflow: flpp AI-drafts the SoW from a shared survey and POSTs it to
+// /api/flpp/sow with status `in_review`. A reviewer here either Accepts (→
+// `shared`: the tokened /sow customer page goes live) or Requests edit (→
+// `changes_requested`, appending a comment) which flpp pulls back via
+// /api/flpp/sow/[token] to revise and re-share. Same tokened customer-share
+// model as `proposals`.
+export type SowComment = {
+  round: number; // review round this comment belongs to
+  author: string; // reviewer name (or "Customer")
+  role: "customer" | "ops" | "design" | "admin";
+  body: string;
+  at: string; // ISO timestamp
+};
 export const scopeOfWork = pgTable("scope_of_work", {
   id: serial("id").primaryKey(),
   token: text("token").notNull().unique(), // unguessable share token (from flpp)
   docRef: text("doc_ref").notNull(),
   requestRef: text("request_ref"), // originating Turnkii request (TRN/TK-…)
   ticketRef: text("ticket_ref"), // flpp execution ticket (FLP-…)
-  status: text("status").notNull().default("shared"), // shared | viewed
+  // in_review | changes_requested | shared | viewed
+  // (shared = accepted → customer link live; viewed = customer opened it)
+  status: text("status").notNull().default("in_review"),
+  comments: jsonb("comments").$type<SowComment[]>().notNull().default([]),
   data: jsonb("data").$type<Record<string, unknown>>().notNull(),
   customerUrl: text("customer_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

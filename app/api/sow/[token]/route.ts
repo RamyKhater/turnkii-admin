@@ -26,6 +26,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
   const [row] = await db.select().from(scopeOfWork).where(eq(scopeOfWork.token, token)).limit(1);
   if (!row) return Response.json({ error: "not found" }, { status: 404, headers: CORS });
 
+  // Only accepted documents are customer-visible. While a SoW is still in
+  // review or has changes requested, the token exists but the document is not
+  // yet published to the customer — behave as not-found.
+  if (row.status !== "shared" && row.status !== "viewed") {
+    return Response.json({ error: "not found" }, { status: 404, headers: CORS });
+  }
+
   // Mark viewed on first open (best-effort; never blocks the response).
   if (row.status !== "viewed") {
     try {
