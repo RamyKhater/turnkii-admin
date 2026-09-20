@@ -249,6 +249,8 @@ export default async function RequestDetailPage({
                     status={sow.status}
                     comments={sow.comments ?? []}
                     customerUrl={sow.customerUrl}
+                    projectId={sow.projectId}
+                    projects={projectRows}
                   />
                 ) : req.flppSharedAt ? (
                   <p className="rounded-xl bg-sand/50 p-4 text-sm text-sub">Shared with flpp — awaiting the AI-drafted Scope of Work.</p>

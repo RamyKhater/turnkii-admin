@@ -4,7 +4,7 @@ import { eq, asc, desc, inArray } from "drizzle-orm";
 import { requireCap } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { projects, payments, properties, projectUpdates, projectMedia, projectSignoffs, styles, surveyFiles } from "@/lib/db/schema";
+import { projects, payments, properties, projectUpdates, projectMedia, projectSignoffs, styles, surveyFiles, scopeOfWork } from "@/lib/db/schema";
 import { PageHeader, Card, StatTile } from "@/components/ui";
 import { fmtEGP, summarize, KIND_LABEL } from "@/lib/payments";
 import { PaymentActions, PaymentStateBadge, AddPaymentForm } from "@/components/payments/controls";
@@ -38,6 +38,7 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
   const media = updateIds.length ? await db.select().from(projectMedia).where(inArray(projectMedia.updateId, updateIds)).orderBy(asc(projectMedia.sort)) : [];
   const signoffs = updateIds.length ? await db.select().from(projectSignoffs).where(inArray(projectSignoffs.updateId, updateIds)) : [];
   const surveyDocs = await db.select().from(surveyFiles).where(eq(surveyFiles.projectId, pr.id)).orderBy(desc(surveyFiles.createdAt));
+  const sowDocs = await db.select().from(scopeOfWork).where(eq(scopeOfWork.projectId, pr.id)).orderBy(desc(scopeOfWork.id));
   const mediaByU = new Map<number, typeof media>();
   for (const m of media) { const a = mediaByU.get(m.updateId) ?? []; a.push(m); mediaByU.set(m.updateId, a); }
   const soByU = new Map(signoffs.map((s) => [s.updateId, s]));
@@ -162,6 +163,30 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
                   <span className="min-w-0"><span className="block truncate text-sm font-semibold text-ink">{f.name}</span>{f.note && <span className="block truncate text-xs text-muted">{f.note}</span>}</span>
                 </a>
               ))}
+            </div>
+          </Card>
+        )}
+
+        {sowDocs.length > 0 && (
+          <Card className="p-5 lg:p-6">
+            <h2 className="text-sm font-bold">Scope of Work</h2>
+            <p className="text-xs text-sub">Scope documents attached to this project.</p>
+            <div className="mt-4 space-y-2">
+              {sowDocs.map((s) => {
+                const live = s.status === "shared" || s.status === "viewed";
+                return (
+                  <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line p-3">
+                    <div className="min-w-0">
+                      <span className="font-mono text-sm font-bold text-ink">{s.docRef}</span>
+                      <span className="ml-2 rounded-full bg-sand px-2 py-0.5 text-xs font-bold capitalize text-sub">{s.status.replace(/_/g, " ")}</span>
+                      {s.requestRef && <span className="ml-2 text-xs text-muted">{s.requestRef}</span>}
+                    </div>
+                    {live && s.customerUrl && (
+                      <a href={s.customerUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-olive hover:text-ink">Customer document ↗</a>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </Card>
         )}
