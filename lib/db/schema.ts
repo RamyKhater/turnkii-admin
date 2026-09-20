@@ -557,6 +557,7 @@ export const scopeOfWork = pgTable("scope_of_work", {
   docRef: text("doc_ref").notNull(),
   requestRef: text("request_ref"), // originating Turnkii request (TRN/TK-…)
   ticketRef: text("ticket_ref"), // flpp execution ticket (FLP-…)
+  projectId: integer("project_id").references((): AnyPgColumn => projects.id, { onDelete: "set null" }), // attached project
   // in_review | changes_requested | shared | viewed
   // (shared = accepted → customer link live; viewed = customer opened it)
   status: text("status").notNull().default("in_review"),

@@ -1,6 +1,6 @@
 "use client";
-import { useActionState, useTransition } from "react";
-import { shareSurveyWithFlpp, acceptSow, requestSowEdit, type SowReviewState } from "@/lib/flpp/actions";
+import { useActionState, useState, useTransition } from "react";
+import { shareSurveyWithFlpp, acceptSow, requestSowEdit, attachSowToProject, type SowReviewState } from "@/lib/flpp/actions";
 import type { SowComment } from "@/lib/db/schema";
 
 export function ShareSurveyButton({ requestId, sharedAt, ready }: { requestId: number; sharedAt: Date | null; ready: boolean }) {
@@ -39,6 +39,8 @@ export function SowReviewPanel({
   status,
   comments,
   customerUrl,
+  projectId,
+  projects,
 }: {
   requestId: number;
   token: string;
@@ -46,11 +48,21 @@ export function SowReviewPanel({
   status: string;
   comments: SowComment[];
   customerUrl: string | null;
+  projectId: number | null;
+  projects: { id: number; name: string }[];
 }) {
   const [pendingAccept, startAccept] = useTransition();
+  const [pendingLink, startLink] = useTransition();
+  const [linkedProject, setLinkedProject] = useState<number | null>(projectId);
   const [state, editAction, editing] = useActionState<SowReviewState, FormData>(requestSowEdit, {});
   const meta = STATUS_META[status] ?? STATUS_META.in_review;
   const accepted = status === "shared" || status === "viewed";
+
+  const onLink = (value: string) => startLink(async () => {
+    const next = value ? Number(value) : null;
+    await attachSowToProject(requestId, token, next);
+    setLinkedProject(next);
+  });
 
   return (
     <div className="space-y-4">
@@ -67,6 +79,24 @@ export function SowReviewPanel({
           <a href={customerUrl} target="_blank" rel="noopener noreferrer" className="mt-0.5 block break-all font-mono text-xs text-ink underline hover:text-olive">{customerUrl}</a>
         </div>
       )}
+
+      <div>
+        <label className="text-xs font-bold uppercase tracking-wider text-muted">Project</label>
+        <select
+          value={linkedProject ?? ""}
+          disabled={pendingLink}
+          onChange={(e) => onLink(e.target.value)}
+          className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm font-semibold outline-none focus:border-ink disabled:opacity-60"
+        >
+          <option value="">Not attached to a project</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        {linkedProject && (
+          <a href={`/projects/${linkedProject}`} className="mt-1 inline-block text-xs font-semibold text-olive hover:underline">Open project →</a>
+        )}
+      </div>
 
       {comments.length > 0 && (
         <div>
