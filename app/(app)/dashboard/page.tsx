@@ -4,7 +4,7 @@ import { eq, sql, gte } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/guard";
 import { canAccessSection, homeSectionFor, can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { requests, users, styles, services, payments, projects, whatsappClicks, type Request } from "@/lib/db/schema";
+import { requests, users, styles, services, payments, projects, whatsappClicks, showcaseRatings, projectShowcaseRatings, type Request } from "@/lib/db/schema";
 import { PageHeader, Card, StatTile, StatusBadge, Avatar, PIPELINE, STATUS_META } from "@/components/ui";
 import { firstResponseSla, resolutionSla } from "@/lib/sla";
 import { getSiteConfig } from "@/lib/settings";
@@ -46,6 +46,16 @@ export default async function DashboardPage() {
     .where(gte(whatsappClicks.createdAt, monthStart));
   const waClicks = waT?.n ?? 0;
   const waClicksMonth = waM?.n ?? 0;
+
+  // Client rating — average of every star rating left on the public site
+  // (sample work + the homepage project-showcase gallery). Same number shown on
+  // the marketing hero.
+  const [srRate, prRate] = await Promise.all([
+    db.select({ sum: sql<number>`coalesce(sum(${showcaseRatings.value}),0)::float`, count: sql<number>`count(*)::int` }).from(showcaseRatings),
+    db.select({ sum: sql<number>`coalesce(sum(${projectShowcaseRatings.value}),0)::float`, count: sql<number>`count(*)::int` }).from(projectShowcaseRatings),
+  ]);
+  const ratingCount = (srRate[0]?.count ?? 0) + (prRate[0]?.count ?? 0);
+  const ratingAvg = ratingCount ? Math.round(((srRate[0]!.sum + prRate[0]!.sum) / ratingCount) * 10) / 10 : 0;
 
   const byStatus = PIPELINE.map((s) => ({ status: s, count: rows.filter((r) => r.status === s).length }));
   const maxStatus = Math.max(1, ...byStatus.map((b) => b.count));
@@ -144,10 +154,11 @@ export default async function DashboardPage() {
           <StatTile label="WhatsApp clicks" value={waClicks} hint={`${waClicksMonth} this month · intent, not leads`} />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatTile label="First-response SLA" value={`${frCompliance}%`} hint={`${sla.firstResponseHours}h target · met on time`} />
           <StatTile label="Avg resolution" value={avgResolveDays ? `${avgResolveDays.toFixed(1)}d` : "—"} hint={`${sla.resolveDays}d target`} />
           <StatTile label="Needs attention" value={atRisk} hint="open requests at-risk or breached" />
+          <StatTile label="Client rating" value={ratingCount ? `${ratingAvg.toFixed(1)}★` : "—"} hint={ratingCount ? `${ratingCount} rating${ratingCount === 1 ? "" : "s"} · showcase + samples` : "no ratings yet"} />
         </div>
 
         {showPayments && (
