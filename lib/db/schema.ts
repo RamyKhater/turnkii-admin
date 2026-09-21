@@ -512,12 +512,37 @@ export const surveyFiles = pgTable("survey_files", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Project showcases. Like Sample Work, but organised into SERVICE sections
+//    (Finishing, Furnishing, Kitchens, …). Each service can optionally credit the
+//    supplier/contractor who delivered it, with their logo. Same deep-zoom viewer.
+export const projectShowcases = pgTable("project_showcases", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(), // unguessable share token, generated once
+  title: text("title").notNull(),
+  subtitle: text("subtitle"),
+  intro: text("intro"),
+  status: showcaseStatusEnum("status").notNull().default("draft"),
+  // each image is tagged with the service it belongs to (its section)
+  items: jsonb("items").$type<
+    { image: string; category?: string; caption?: string; note?: string; spec?: string }[]
+  >().default([]),
+  // optional supplier/contractor credit per service — { image: logo, service, name }
+  credits: jsonb("credits").$type<{ image: string; service?: string; name?: string }[]>().default([]),
+  ctaLabel: text("cta_label"),
+  ctaHref: text("cta_href"),
+  createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  viewedAt: timestamp("viewed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 export type SurveyFile = typeof surveyFiles.$inferSelect;
 export type Proposal = typeof proposals.$inferSelect;
 export type Showcase = typeof showcases.$inferSelect;
+export type ProjectShowcase = typeof projectShowcases.$inferSelect;
 export type Request = typeof requests.$inferSelect;
 export type RequestNote = typeof requestNotes.$inferSelect;
 export type Style = typeof styles.$inferSelect;
