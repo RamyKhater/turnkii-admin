@@ -7,7 +7,7 @@ import { PageHeader, Card } from "@/components/ui";
 import { ProjectShowcaseForm } from "@/components/project-showcases/project-showcase-form";
 import { CopyLink } from "@/components/proposals/copy-link";
 import { projectShowcaseUrl } from "@/lib/project-showcases/link";
-import { setProjectShowcaseStatus, deleteProjectShowcase } from "@/lib/project-showcases/actions";
+import { setProjectShowcaseStatus, deleteProjectShowcase, setProjectShowcaseFeatured } from "@/lib/project-showcases/actions";
 
 const STATUS: Record<string, string> = {
   draft: "bg-sand text-sub", shared: "bg-info/10 text-info", viewed: "bg-lime/20 text-olive", archived: "bg-sand text-muted",
@@ -53,6 +53,23 @@ export default async function ProjectShowcaseDetailPage({ params }: { params: Pr
             {fmt(s.viewedAt) && <span className="ml-auto text-xs text-sub">Opened {fmt(s.viewedAt)}</span>}
           </div>
           {s.status === "archived" && <p className="mt-3 text-xs text-crit">Archived — the link now returns “not found”.</p>}
+        </Card>
+
+        <Card className="mt-5 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-bold">Show on the homepage</h2>
+              <p className="mt-1 text-sm text-sub">Add this project's images to the public “our recent work” gallery on turnkii.app, grouped by service with supplier logos. Publishes on save.</p>
+            </div>
+            <form action={setProjectShowcaseFeatured}>
+              <input type="hidden" name="id" value={s.id} />
+              <input type="hidden" name="featured" value={s.featured ? "false" : "true"} />
+              <button className={`rounded-full px-5 py-2.5 text-sm font-semibold ${s.featured ? "border border-line hover:border-ink" : "bg-olive text-cream hover:bg-olive/90"}`}>
+                {s.featured ? "On homepage · Remove" : "Show on homepage"}
+              </button>
+            </form>
+          </div>
+          {s.featured && <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-lime/20 px-3 py-1 text-xs font-bold text-olive">● Live on turnkii.app</p>}
         </Card>
       </div>
 

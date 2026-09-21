@@ -522,6 +522,7 @@ export const projectShowcases = pgTable("project_showcases", {
   subtitle: text("subtitle"),
   intro: text("intro"),
   status: showcaseStatusEnum("status").notNull().default("draft"),
+  featured: boolean("featured").notNull().default(false), // show on the public marketing homepage
   // each image is tagged with the service it belongs to (its section)
   items: jsonb("items").$type<
     { image: string; category?: string; caption?: string; note?: string; spec?: string }[]

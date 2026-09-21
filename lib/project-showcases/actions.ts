@@ -83,6 +83,20 @@ export async function setProjectShowcaseStatus(formData: FormData) {
   redirect(`/project-showcases/${id}`);
 }
 
+/** Toggle whether this showcase appears in the public "our work" gallery on the
+ *  marketing homepage. Triggers a site rebuild so the homepage reflects it. */
+export async function setProjectShowcaseFeatured(formData: FormData) {
+  const user = await assertCap("showcases:manage");
+  const id = Number(formData.get("id"));
+  const featured = str(formData.get("featured")) === "true";
+  const db = await getDb();
+  await db.update(projectShowcases).set({ featured, updatedAt: new Date() }).where(eq(projectShowcases.id, id));
+  await logActivity(user.id, "projectShowcase.featured", "projectShowcase", String(id), { featured });
+  try { const { triggerSiteRebuild } = await import("@/lib/publish/trigger"); await triggerSiteRebuild(); } catch { /* rebuild optional */ }
+  revalidatePath(`/project-showcases/${id}`);
+  revalidatePath("/project-showcases");
+}
+
 export async function deleteProjectShowcase(formData: FormData) {
   const user = await assertCap("showcases:manage");
   const id = Number(formData.get("id"));
