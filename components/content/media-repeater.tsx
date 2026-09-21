@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { uploadImage } from "./downscale";
 
-type TextField = { key: string; label: string; placeholder?: string };
+type TextField = { key: string; label: string; placeholder?: string; options?: string[] };
 type Item = Record<string, string>; // always has "image", plus any text fields
 
 /**
@@ -123,9 +123,19 @@ export function MediaRepeater({
                   value={it[f.key] ?? ""}
                   onChange={(e) => update(i, { [f.key]: e.target.value })}
                   placeholder={f.placeholder ?? f.label}
+                  list={f.options && f.options.length ? `${name}-${f.key}-opts` : undefined}
                   className="w-full rounded-lg border border-line bg-paper px-3 py-1.5 text-sm outline-none focus:border-ink"
                 />
               ))}
+              {textFields.map((f) =>
+                f.options && f.options.length ? (
+                  <datalist key={`dl-${f.key}`} id={`${name}-${f.key}-opts`}>
+                    {f.options.map((o) => (
+                      <option key={o} value={o} />
+                    ))}
+                  </datalist>
+                ) : null,
+              )}
               <div className="mt-auto flex gap-3 text-xs font-semibold">
                 <button type="button" onClick={() => move(i, -1)} className="text-sub hover:text-ink" aria-label="Move up">↑</button>
                 <button type="button" onClick={() => move(i, 1)} className="text-sub hover:text-ink" aria-label="Move down">↓</button>

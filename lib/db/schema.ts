@@ -537,6 +537,18 @@ export const projectShowcases = pgTable("project_showcases", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Per-image star ratings on the public homepage project gallery. Same shape as
+// showcaseRatings; both feed the overall client rating on the hero.
+export const projectShowcaseRatings = pgTable("project_showcase_ratings", {
+  id: serial("id").primaryKey(),
+  showcaseId: integer("showcase_id").notNull().references(() => projectShowcases.id, { onDelete: "cascade" }),
+  itemIndex: integer("item_index").notNull(),
+  value: integer("value").notNull(), // 1..5
+  voter: text("voter").notNull(),    // anonymous client id (from the viewer's localStorage)
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("project_showcase_rating_voter_uq").on(t.showcaseId, t.itemIndex, t.voter)]);
+
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type Task = typeof tasks.$inferSelect;

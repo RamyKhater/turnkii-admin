@@ -3,6 +3,10 @@ import { createProjectShowcase, updateProjectShowcase } from "@/lib/project-show
 import { aiDraftShowcaseImage } from "@/lib/showcases/ai";
 import { MediaRepeater } from "@/components/content/media-repeater";
 
+// Predefined services offered as a dropdown; the field stays free-text so any of
+// these can be picked from the list or a custom service typed in.
+const SERVICES = ["Finishing", "Furnishing", "Kitchens", "Bathrooms", "Joinery", "HVAC", "Electrical", "Lighting", "Flooring", "Outdoor", "FF&E"];
+
 const field = "w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-ink";
 const labelC = "block text-xs font-bold uppercase tracking-wider text-muted";
 
@@ -42,7 +46,7 @@ export function ProjectShowcaseForm({ showcase }: { showcase?: ProjectShowcase }
             addLabel="image"
             aiDraft={aiDraftShowcaseImage}
             textFields={[
-              { key: "category", label: "Service", placeholder: "Finishing / Furnishing / Kitchens…" },
+              { key: "category", label: "Service", placeholder: "Finishing / Furnishing / Kitchens…", options: SERVICES },
               { key: "caption", label: "Caption", placeholder: "Living room — book-matched veneer wall" },
               { key: "note", label: "Craftsmanship note", placeholder: "Hand-mitred corners, seamless grain match" },
               { key: "spec", label: "Materials / spec", placeholder: "American walnut veneer · matte PU lacquer" },
@@ -61,7 +65,7 @@ export function ProjectShowcaseForm({ showcase }: { showcase?: ProjectShowcase }
             label="Logos"
             addLabel="supplier"
             textFields={[
-              { key: "service", label: "Service (matches a section above)", placeholder: "Finishing" },
+              { key: "service", label: "Service (matches a section above)", placeholder: "Finishing", options: SERVICES },
               { key: "name", label: "Supplier / contractor name", placeholder: "Naos Contracting" },
             ]}
             initial={(s?.credits ?? []).map((c) => ({ image: c.image, service: c.service ?? "", name: c.name ?? "" }))}

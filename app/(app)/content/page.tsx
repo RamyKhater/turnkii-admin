@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { sql, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { styles, products, inspirationShots, services, contentBlocks, handovers } from "@/lib/db/schema";
+import { styles, products, inspirationShots, services, contentBlocks, projectShowcases } from "@/lib/db/schema";
 import { PageHeader, Card } from "@/components/ui";
 import { PublishButton } from "@/components/content/publish-button";
 
-async function count(table: typeof styles | typeof products | typeof inspirationShots | typeof services | typeof handovers) {
+async function count(table: typeof styles | typeof products | typeof inspirationShots | typeof services) {
   const db = await getDb();
   const [r] = await db.select({ n: sql<number>`count(*)::int` }).from(table);
   const [p] = await db
@@ -15,10 +15,19 @@ async function count(table: typeof styles | typeof products | typeof inspiration
   return { total: r.n, published: p.n };
 }
 
+// Project showcases have no `published` flag — the "live" count is how many are
+// featured on the homepage (excluding archived).
+async function showcaseCount() {
+  const db = await getDb();
+  const [r] = await db.select({ n: sql<number>`count(*)::int` }).from(projectShowcases).where(sql`status <> 'archived'`);
+  const [f] = await db.select({ n: sql<number>`count(*)::int` }).from(projectShowcases).where(sql`featured = true and status <> 'archived'`);
+  return { total: r.n, published: f.n };
+}
+
 export default async function ContentHub() {
   const db = await getDb();
-  const [st, pr, ins, sv, ho, pub] = await Promise.all([
-    count(styles), count(products), count(inspirationShots), count(services), count(handovers),
+  const [st, pr, ins, sv, ps, pub] = await Promise.all([
+    count(styles), count(products), count(inspirationShots), count(services), showcaseCount(),
     db.select().from(contentBlocks).where(eq(contentBlocks.key, "__published")).limit(1),
   ]);
   const lastPublished = ((pub[0]?.value as { at?: string } | undefined)?.at) ?? null;
@@ -28,7 +37,7 @@ export default async function ContentHub() {
     { href: "/content/styles", title: "Design styles", desc: "Names, blurbs, palettes and pricing for the five costed styles.", ...st },
     { href: "/content/marketplace", title: "Marketplace", desc: "Products — names, specs, categories, price and stock.", ...pr },
     { href: "/content/inspiration", title: "Inspiration board", desc: "Shots — titles, specs, room tags and style.", ...ins },
-    { href: "/content/handovers", title: "Recent handovers", desc: "Delivered-project gallery with partner suppliers.", ...ho },
+    { href: "/project-showcases", title: "Project showcase", desc: "Homepage “our recent work” gallery, by service, with supplier credits & ratings.", ...ps },
     { href: "/content/copy", title: "Marketing copy", desc: "Landing hero and headline stats.", total: 2, published: 2 },
     { href: "/content/site-copy", title: "Site copy", desc: "Edit any text on the site — headings, body and footer — from one place.", total: 1, published: 1 },
   ];

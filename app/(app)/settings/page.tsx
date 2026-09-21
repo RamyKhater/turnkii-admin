@@ -23,7 +23,13 @@ export default async function SettingsPage() {
   const db = await getDb();
   const [pub] = await db.select().from(contentBlocks).where(eq(contentBlocks.key, "__published")).limit(1);
   const lastPublished = ((pub?.value as { at?: string } | undefined)?.at) ?? null;
-  const verticals = rows.filter((r) => r.group === "vertical");
+  // The "handovers" vertical now gates the homepage Project-showcase section, so
+  // relabel it for display without renaming the underlying setting key.
+  const verticalLabel = (key: string, label: string) =>
+    key === "vertical.handovers" ? "Project showcase" : label;
+  const verticals = rows
+    .filter((r) => r.group === "vertical")
+    .map((r) => ({ ...r, label: verticalLabel(r.key, r.label) }));
   const navLinks = NAV_LINKS.map((n) => ({ ...n, enabled: rows.find((r) => r.key === n.key)?.enabled ?? true }));
   const arabicEnabled = rows.find((r) => r.key === "arabic.enabled")?.enabled ?? false;
   const first = Number(rows.find((r) => r.key === "sla.firstResponseHours")?.value ?? 24);
