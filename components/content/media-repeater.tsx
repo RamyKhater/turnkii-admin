@@ -41,6 +41,7 @@ export function MediaRepeater({
       const patch: Record<string, string> = {};
       textFields.forEach((f) => { const v = out?.[f.key]; if (typeof v === "string" && v) patch[f.key] = v; });
       if (Object.keys(patch).length) update(i, patch);
+      else if (out && typeof out.error === "string" && out.error) alert(out.error);
       else alert("AI couldn't draft this one — add the details manually, or check the image is uploaded.");
     } catch {
       alert("AI draft failed. Please try again.");
@@ -127,15 +128,6 @@ export function MediaRepeater({
                   className="w-full rounded-lg border border-line bg-paper px-3 py-1.5 text-sm outline-none focus:border-ink"
                 />
               ))}
-              {textFields.map((f) =>
-                f.options && f.options.length ? (
-                  <datalist key={`dl-${f.key}`} id={`${name}-${f.key}-opts`}>
-                    {f.options.map((o) => (
-                      <option key={o} value={o} />
-                    ))}
-                  </datalist>
-                ) : null,
-              )}
               <div className="mt-auto flex gap-3 text-xs font-semibold">
                 <button type="button" onClick={() => move(i, -1)} className="text-sub hover:text-ink" aria-label="Move up">↑</button>
                 <button type="button" onClick={() => move(i, 1)} className="text-sub hover:text-ink" aria-label="Move down">↓</button>
@@ -146,6 +138,16 @@ export function MediaRepeater({
         ))}
         {items.length === 0 && <p className="text-xs text-muted">None yet.</p>}
       </div>
+      {/* One shared datalist per field with options (unique id, referenced by every row's input). */}
+      {textFields.map((f) =>
+        f.options && f.options.length ? (
+          <datalist key={`dl-${f.key}`} id={`${name}-${f.key}-opts`}>
+            {f.options.map((o) => (
+              <option key={o} value={o} />
+            ))}
+          </datalist>
+        ) : null,
+      )}
       <button
         type="button"
         onClick={add}
