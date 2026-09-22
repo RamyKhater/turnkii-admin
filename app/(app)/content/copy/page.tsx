@@ -12,9 +12,10 @@ type Stat = { n?: string; label?: string };
 
 export default async function CopyEditor() {
   const db = await getDb();
-  const blocks = await db.select().from(contentBlocks).where(inArray(contentBlocks.key, ["hero", "stats"]));
+  const blocks = await db.select().from(contentBlocks).where(inArray(contentBlocks.key, ["hero", "stats", "ourWorkHero"]));
   const hero = (blocks.find((b) => b.key === "hero")?.value ?? {}) as Hero;
   const stats = (blocks.find((b) => b.key === "stats")?.value ?? []) as Stat[];
+  const ourWork = (blocks.find((b) => b.key === "ourWorkHero")?.value ?? {}) as { image?: string | null };
   const rows: Stat[] = [0, 1, 2, 3].map((i) => stats[i] ?? { n: "", label: "" });
 
   return (
@@ -34,6 +35,12 @@ export default async function CopyEditor() {
             <p className="-mt-2 text-xs text-muted">Tip: wrap a word in **stars** to highlight it in lime.</p>
             <Textarea label="Sub-headline" name="sub" defaultValue={hero.sub} rows={3} />
             <ImageField name="heroImage" label="Hero background image" defaultValue={hero.image} />
+          </Card>
+
+          <Card className="space-y-4 p-6">
+            <h2 className="text-sm font-bold">“Our recent work” page</h2>
+            <p className="-mt-1 text-xs text-muted">The dedicated project-showcase page at <span className="font-mono">/our-work</span>. Upload a background photo for its hero, or leave empty for the flat dark hero.</p>
+            <ImageField name="ourWorkImage" label="Hero background image" defaultValue={ourWork.image} />
           </Card>
 
           <Card className="space-y-3 p-6">

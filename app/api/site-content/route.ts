@@ -70,6 +70,8 @@ export async function GET() {
     financing: financingRow?.value ?? null,
     referralCredit: Number(settings.find((s) => s.key === "referral.creditEGP")?.value ?? 5000),
     hero: block("hero"),
+    // Hero background photo for the dedicated /our-work project-showcase page.
+    ourWork: block("ourWorkHero"),
     stats: block("stats") ?? [],
     styles: st.map((s) => ({
       key: s.key,

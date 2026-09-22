@@ -261,6 +261,8 @@ export async function saveCopy(formData: FormData) {
     n: String(formData.get(`stat_n_${i}`) ?? "").trim(),
     label: String(formData.get(`stat_label_${i}`) ?? "").trim(),
   })).filter((s) => s.n || s.label);
+  // Hero background photo for the dedicated /our-work project-showcase page.
+  const ourWorkHero = { image: String(formData.get("ourWorkImage") ?? "").trim() || null };
 
   // Upsert so it works whether or not the rows exist yet.
   await db
@@ -268,6 +270,7 @@ export async function saveCopy(formData: FormData) {
     .values([
       { key: "hero", label: "Landing hero", value: hero },
       { key: "stats", label: "Landing stats", value: stats },
+      { key: "ourWorkHero", label: "Our recent work hero", value: ourWorkHero },
     ])
     .onConflictDoUpdate({
       target: contentBlocks.key,
