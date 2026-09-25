@@ -17,18 +17,32 @@ function reviewRole(role: string): SowComment["role"] {
 /** Operations shares a request's survey outcome + notes with flpp so it can
  *  AI-draft the Scope of Work. Enabled once the survey is done (files or a
  *  survey note exist). Idempotent — re-sharing just refreshes the timestamp. */
-export async function shareSurveyWithFlpp(requestId: number) {
+export type ShareState = { ok?: boolean; error?: string };
+
+export async function shareSurveyWithFlpp(requestId: number): Promise<ShareState> {
   const user = await assertCap("projects:manage");
   const db = await getDb();
-  await db.update(requests).set({ flppSharedAt: new Date(), updatedAt: new Date() }).where(eq(requests.id, requestId));
-  await db.insert(requestNotes).values({
-    requestId,
-    authorId: user.id,
-    kind: "status",
-    body: "Survey outcome + notes shared with flpp to draft the Scope of Work.",
-  });
-  await logActivity(user.id, "flpp.share_survey", "request", requestId);
+  try {
+    // The critical write: mark the request shared so /api/flpp/surveys returns it.
+    await db.update(requests).set({ flppSharedAt: new Date(), updatedAt: new Date() }).where(eq(requests.id, requestId));
+  } catch (e) {
+    console.error("[flpp.share_survey] failed", e);
+    return { error: "Couldn't share with flpp — please try again." };
+  }
+  // Best-effort trail; never fails the share (the request is already marked shared).
+  try {
+    await db.insert(requestNotes).values({
+      requestId,
+      authorId: user.id,
+      kind: "status",
+      body: "Survey outcome + notes shared with flpp to draft the Scope of Work.",
+    });
+    await logActivity(user.id, "flpp.share_survey", "request", requestId);
+  } catch (e) {
+    console.error("[flpp.share_survey] trail failed (share still applied)", e);
+  }
   revalidatePath(`/requests/${requestId}`);
+  return { ok: true };
 }
 
 /** Accept the SoW flpp shared for review → publish to the customer. The token
