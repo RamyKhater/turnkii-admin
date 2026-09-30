@@ -60,7 +60,7 @@ export function can(role: Role, cap: Capability): boolean {
 /** Whether a role can reach a given section of the app at all. */
 export type Section =
   | "dashboard" | "requests" | "properties" | "projects" | "pricing" | "payments"
-  | "proposals" | "showcases" | "projectShowcases" | "tasks" | "content" | "users" | "settings";
+  | "proposals" | "showcases" | "projectShowcases" | "tasks" | "content" | "customers" | "users" | "settings";
 
 export function canAccessSection(role: Role, section: Section): boolean {
   switch (section) {
@@ -86,6 +86,9 @@ export function canAccessSection(role: Role, section: Section): boolean {
       return can(role, "payments:view");
     case "content":
       return can(role, "content:edit");
+    case "customers":
+      // Customer accounts + their requests/projects/payments — managers & admin.
+      return can(role, "requests:view_all") || can(role, "payments:view");
     case "users":
       return can(role, "users:manage");
     case "settings":

@@ -8,7 +8,7 @@ import type { Role } from "@/lib/db/schema";
 type NavItem = {
   href: string;
   label: string;
-  section: "dashboard" | "requests" | "properties" | "projects" | "pricing" | "payments" | "proposals" | "showcases" | "projectShowcases" | "tasks" | "content" | "users" | "settings";
+  section: "dashboard" | "requests" | "properties" | "projects" | "pricing" | "payments" | "proposals" | "showcases" | "projectShowcases" | "tasks" | "content" | "customers" | "users" | "settings";
   icon: React.ReactNode;
 };
 
@@ -22,6 +22,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", section: "dashboard", icon: I("M3 13h8V3H3zM13 21h8v-8h-8zM13 3v6h8V3zM3 21h8v-4H3z") },
   { href: "/requests", label: "Requests", section: "requests", icon: I("M4 6h16M4 12h16M4 18h10") },
   { href: "/referrals", label: "Referrals", section: "requests", icon: I("M17 21v-2a4 4 0 0 0-3-3.87M9 21v-2a4 4 0 0 1 3-3.87M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M20 8v6M23 11h-6") },
+  { href: "/customers", label: "Customers", section: "customers", icon: I("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75") },
   { href: "/properties", label: "Properties", section: "properties", icon: I("M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5M9 21v-6h6v6") },
   { href: "/projects", label: "Projects", section: "projects", icon: I("M3 7h7l2 3h9v9H3zM3 7V5h6l2 2") },
   { href: "/proposals", label: "Proposals", section: "proposals", icon: I("M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3M18 2l4 4-9 9h-4v-4zM8 8h4M8 12h3") },

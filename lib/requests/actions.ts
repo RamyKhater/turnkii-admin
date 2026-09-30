@@ -119,6 +119,50 @@ export async function createRequest(_prev: CreateRequestState, formData: FormDat
   redirect(`/requests/${row.id}`);
 }
 
+/** Edit the customer details and requirement on a request. */
+export async function updateRequest(formData: FormData) {
+  const user = await assertCap("requests:update");
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) throw new Error("Bad request id");
+  const req = await loadRequest(id);
+  ensureOwnership(user, req.assignedTo);
+
+  const str = (k: string) => { const v = String(formData.get(k) ?? "").trim(); return v || null; };
+  const num = (k: string) => { const v = String(formData.get(k) ?? "").trim(); if (!v) return null; const n = Number(v); return Number.isFinite(n) ? Math.round(n) : null; };
+  const services = String(formData.get("services") ?? "")
+    .split(",").map((s) => s.trim()).filter(Boolean);
+
+  const db = await getDb();
+  await db.update(requests).set({
+    // customer details
+    contactName: str("contactName"),
+    phone: str("phone"),
+    email: str("email"),
+    location: str("location"),
+    propertyType: str("propertyType"),
+    area: num("area"),
+    units: num("units"),
+    // requirement
+    services,
+    style: str("style"),
+    kitchen: str("kitchen"),
+    hvac: str("hvac"),
+    budgetPlan: str("budgetPlan"),
+    message: str("message"),
+    // financing
+    monthlyIncome: num("monthlyIncome"),
+    financeAmount: num("financeAmount"),
+    employment: str("employment"),
+    updatedAt: new Date(),
+  }).where(eq(requests.id, id));
+  await db.insert(requestNotes).values({
+    requestId: id, authorId: user.id, kind: "note", body: "Edited the request details.",
+  });
+  await logActivity(user.id, "request.update", "request", id);
+  revalidatePath(`/requests/${id}`);
+  revalidatePath("/requests");
+}
+
 export async function assignRequest(id: number, assigneeId: number | null) {
   const user = await assertCap("requests:assign");
   const db = await getDb();

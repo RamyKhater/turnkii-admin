@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { eq, sql, gte } from "drizzle-orm";
+import { eq, sql, gte, and, ne, desc } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/guard";
 import { canAccessSection, homeSectionFor, can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { requests, users, styles, services, payments, projects, whatsappClicks, showcaseRatings, projectShowcaseRatings, type Request } from "@/lib/db/schema";
+import { requests, users, styles, services, payments, projects, whatsappClicks, showcaseRatings, projectShowcaseRatings, tasks, type Request } from "@/lib/db/schema";
 import { PageHeader, Card, StatTile, StatusBadge, Avatar, PIPELINE, STATUS_META } from "@/components/ui";
 import { firstResponseSla, resolutionSla } from "@/lib/sla";
 import { getSiteConfig } from "@/lib/settings";
@@ -84,6 +84,22 @@ export default async function DashboardPage() {
   const maxLoad = Math.max(1, ...load.map((l) => l.count));
 
   const recent = [...rows].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 6);
+
+  // Open tasks — an agent sees their own; everyone else sees the team's. Not-done,
+  // soonest due first, capped for the dashboard.
+  const openTasks = await db
+    .select()
+    .from(tasks)
+    .where(isAgent ? and(ne(tasks.status, "done"), eq(tasks.assigneeId, user.id)) : ne(tasks.status, "done"))
+    .orderBy(sql`${tasks.dueDate} asc nulls last`, desc(tasks.createdAt))
+    .limit(6);
+  const [openTaskCount] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(tasks)
+    .where(isAgent ? and(ne(tasks.status, "done"), eq(tasks.assigneeId, user.id)) : ne(tasks.status, "done"));
+  const TASK_STATUS: Record<string, string> = {
+    open: "bg-sand text-sub", in_progress: "bg-info/10 text-info", blocked: "bg-crit/10 text-crit", done: "bg-lime/20 text-olive",
+  };
 
   // SLA metrics
   const { sla } = await getSiteConfig();
@@ -440,6 +456,47 @@ export default async function DashboardPage() {
             </Card>
           )}
         </div>
+
+        <Card className="overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4">
+            <h2 className="text-sm font-bold">{isAgent ? "Your open tasks" : "Open tasks"}</h2>
+            <Link href="/tasks" className="text-xs font-bold text-olive hover:text-ink">
+              {openTaskCount?.n ? `${openTaskCount.n} open · View all →` : "View all →"}
+            </Link>
+          </div>
+          {openTasks.length === 0 ? (
+            <div className="px-5 pb-6 text-sm text-muted">No open tasks. <Link href="/tasks" className="font-semibold text-olive">Open Tasks →</Link></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
+                <tbody>
+                  {openTasks.map((t) => {
+                    const overdue = t.dueDate && t.status !== "done" && t.dueDate.getTime() < now.getTime();
+                    return (
+                      <tr key={t.id} className="border-t border-line hover:bg-sand/30">
+                        <td className="px-5 py-2.5">
+                          <Link href="/tasks" className="font-semibold text-ink hover:text-olive">{t.title}</Link>
+                          {t.entityType && t.entityId && (
+                            <span className="ml-2 text-xs text-muted capitalize">{t.entityType} #{t.entityId}</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-sub">{t.assigneeId ? nameOf.get(t.assigneeId) ?? "—" : <span className="text-muted">Unassigned</span>}</td>
+                        <td className="px-3 py-2.5">
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-bold capitalize ${TASK_STATUS[t.status] ?? TASK_STATUS.open}`}>{t.status.replace("_", " ")}</span>
+                        </td>
+                        <td className="px-5 py-2.5 text-right text-sub">
+                          {t.dueDate
+                            ? <span className={overdue ? "font-bold text-crit" : ""}>{t.dueDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+                            : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
 
         <Card className="overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4">

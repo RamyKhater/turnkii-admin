@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db";
 import { requests, requestNotes, users, styles, proposals, surveyFiles, projects, scopeOfWork } from "@/lib/db/schema";
 import { PageHeader, Card, StatusBadge, Avatar } from "@/components/ui";
 import { StatusControl, AssignControl, NoteForm, DeleteRequest } from "@/components/requests/controls";
+import { EditRequest } from "@/components/requests/edit-request";
 import { ShareSurveyButton, SowReviewPanel } from "@/components/flpp/sow-review";
 import { TasksPanel } from "@/components/tasks/tasks-panel";
 import { SurveyPanel } from "@/components/survey/survey-panel";
@@ -189,6 +190,20 @@ export default async function RequestDetailPage({
               <div className="mt-5 rounded-xl bg-sand/50 p-4 text-sm text-sub">{req.message}</div>
             )}
           </Card>
+
+          {canUpdate && (
+            <EditRequest
+              styles={styleRows}
+              req={{
+                id: req.id,
+                contactName: req.contactName, phone: req.phone, email: req.email,
+                location: req.location, propertyType: req.propertyType, area: req.area, units: req.units,
+                services: req.services, style: req.style, kitchen: req.kitchen, hvac: req.hvac,
+                budgetPlan: req.budgetPlan, message: req.message, kind: req.kind,
+                monthlyIncome: req.monthlyIncome, financeAmount: req.financeAmount, employment: req.employment,
+              }}
+            />
+          )}
 
           {canUpdate ? (
             <Card className="p-6">
