@@ -10,7 +10,8 @@ import { NavToggle } from "@/components/settings/nav-toggle";
 import { ArabicToggle } from "@/components/settings/arabic-toggle";
 import { NAV_LINKS } from "@/lib/settings/nav";
 import { PublishButton } from "@/components/content/publish-button";
-import { updateSla, updateNotifications, updateWhatsapp, updateReferral } from "@/lib/settings/actions";
+import { updateSla, updateNotifications, updateWhatsapp, updateReferral, updateBooking } from "@/lib/settings/actions";
+import { mergeBooking } from "@/lib/booking/config";
 import { emailEnabled } from "@/lib/email/send";
 import { mergeEmailCopy, type EmailCopy } from "@/lib/email/requests";
 import { whatsappEnabled } from "@/lib/whatsapp/send";
@@ -35,6 +36,8 @@ export default async function SettingsPage() {
   const first = Number(rows.find((r) => r.key === "sla.firstResponseHours")?.value ?? 24);
   const resolve = Number(rows.find((r) => r.key === "sla.resolveDays")?.value ?? 21);
   const referralCredit = Number(rows.find((r) => r.key === "referral.creditEGP")?.value ?? 5000);
+  const booking = mergeBooking(rows.find((r) => r.key === "booking")?.value);
+  const WEEKDAYS: [number, string][] = [[0, "Sun"], [1, "Mon"], [2, "Tue"], [3, "Wed"], [4, "Thu"], [5, "Fri"], [6, "Sat"]];
   const teamAlert = rows.find((r) => r.key === "notify.newRequestEmail")?.enabled ?? true;
   const customerReceipt = rows.find((r) => r.key === "notify.customerReceipt")?.enabled ?? true;
   const accountWelcome = rows.find((r) => r.key === "notify.accountWelcome")?.enabled ?? true;
@@ -117,6 +120,55 @@ export default async function SettingsPage() {
             </div>
             <ArabicToggle enabled={arabicEnabled} />
           </div>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-sm font-bold">Meeting availability</h2>
+          <p className="mt-1 text-sm text-sub">Controls the slots customers can book on the site&rsquo;s &ldquo;Book a meeting&rdquo;. Times are {booking.tz.replace("_", " ")} wall-clock.</p>
+          <form action={updateBooking} className="mt-4 space-y-5">
+            <input type="hidden" name="tz" value={booking.tz} />
+            <div>
+              <span className="block text-xs font-bold uppercase tracking-wider text-muted">Working days</span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {WEEKDAYS.map(([n, label]) => (
+                  <label key={n} className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${booking.days.includes(n) ? "border-olive bg-lime/15 text-olive" : "border-line text-sub"}`}>
+                    <input type="checkbox" name="days" value={n} defaultChecked={booking.days.includes(n)} className="h-3.5 w-3.5 accent-olive" />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="w-32"><Field label="Day starts" name="start" type="time" defaultValue={booking.start} /></div>
+              <div className="w-32"><Field label="Day ends" name="end" type="time" defaultValue={booking.end} /></div>
+              <div className="w-40">
+                <label className="block"><span className="block text-xs font-bold uppercase tracking-wider text-muted">Slot length</span>
+                  <select name="slotMinutes" defaultValue={booking.slotMinutes} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-ink">
+                    {[30, 45, 60, 90].map((m) => <option key={m} value={m}>{m} min</option>)}
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="w-40"><Field label="Min notice (hours)" name="leadHours" type="number" defaultValue={booking.leadHours} /></div>
+              <div className="w-40"><Field label="Days ahead" name="daysAhead" type="number" defaultValue={booking.daysAhead} /></div>
+              <div className="w-40"><Field label="Max per slot" name="perSlot" type="number" defaultValue={booking.perSlot} /></div>
+            </div>
+            <div>
+              <span className="block text-xs font-bold uppercase tracking-wider text-muted">Meeting types offered</span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {([["online", "Online meeting"], ["site", "On-site survey"]] as [string, string][]).map(([v, label]) => (
+                  <label key={v} className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${booking.types.includes(v as "online" | "site") ? "border-olive bg-lime/15 text-olive" : "border-line text-sub"}`}>
+                    <input type="checkbox" name="types" value={v} defaultChecked={booking.types.includes(v as "online" | "site")} className="h-3.5 w-3.5 accent-olive" />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <Textarea label="Blackout dates" name="blackout" defaultValue={booking.blackout.join(", ")} rows={2} />
+            <p className="-mt-2 text-xs text-muted">Comma- or space-separated ISO dates (YYYY-MM-DD) to block, e.g. public holidays.</p>
+            <SubmitButton>Save availability</SubmitButton>
+          </form>
         </Card>
 
         <Card className="p-6">

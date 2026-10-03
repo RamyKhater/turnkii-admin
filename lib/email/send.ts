@@ -21,12 +21,20 @@ export function appUrl(): string {
   return "http://localhost:3000";
 }
 
+export type EmailAttachment = {
+  filename: string;
+  /** Base64-encoded file content. */
+  content: string;
+  contentType?: string;
+};
+
 export type EmailMessage = {
   to: string | string[];
   subject: string;
   html: string;
   text?: string;
   replyTo?: string;
+  attachments?: EmailAttachment[];
 };
 
 export type EmailResult = { ok: boolean; id?: string; skipped?: boolean; error?: string };
@@ -56,6 +64,9 @@ export async function sendEmail(m: EmailMessage): Promise<EmailResult> {
         html: m.html,
         text: m.text || htmlToText(m.html),
         reply_to: m.replyTo || process.env.TK_EMAIL_REPLY_TO || undefined,
+        attachments: m.attachments?.length
+          ? m.attachments.map((a) => ({ filename: a.filename, content: a.content, content_type: a.contentType }))
+          : undefined,
       }),
     });
     if (!res.ok) {

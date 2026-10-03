@@ -139,6 +139,11 @@ export default async function RequestDetailPage({
   if (req.referredByCode) {
     facts.splice(facts.length - 1, 0, ["Referred by", <span key="ref" className="rounded-full bg-lime/20 px-2 py-0.5 font-mono text-xs font-bold text-olive">{req.referredByCode}</span>]);
   }
+  if (req.meetingLink) {
+    facts.splice(facts.length - 1, 0, ["Meeting link",
+      <a key="ml" href={req.meetingLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1 text-xs font-bold text-lime hover:bg-ink/90">Join online meeting ↗</a>,
+    ]);
+  }
   if (req.visitDay || req.visitSlot || req.visitType) {
     const online = req.visitType === "online";
     const when = [

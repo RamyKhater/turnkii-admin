@@ -92,6 +92,7 @@ export const requests = pgTable("requests", {
   visitDay: text("visit_day"), // requested date (ISO yyyy-mm-dd) for the survey / meeting
   visitSlot: text("visit_slot"), // requested time window (e.g. 10:00)
   visitType: text("visit_type"), // site | online — on-site survey or online meeting
+  meetingLink: text("meeting_link"), // generated video-meeting URL for online bookings
   expEmail: text("exp_email"), // email-required A/B arm: 'A' (control) | 'B' (email required)
   firstResponseAt: timestamp("first_response_at", { withTimezone: true }),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),

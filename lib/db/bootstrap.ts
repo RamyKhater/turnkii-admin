@@ -14,6 +14,7 @@ import { getDb } from "./index";
 import { users, siteSettings, styles, products, services, inspirationShots, contentBlocks, handovers } from "./schema";
 import { hashPassword } from "../auth/password";
 import { SERVICES, STYLES, PRODUCTS, INSPIRATION, CONTENT_BLOCKS, HANDOVERS } from "./content-data";
+import { BOOKING_DEFAULT } from "../booking/config";
 
 const BASELINE_SETTINGS = [
   { key: "vertical.services", label: "Services", group: "vertical", enabled: true },
@@ -36,6 +37,7 @@ const BASELINE_SETTINGS = [
   { key: "nav.account", label: "Nav link: My account", group: "nav", enabled: true },
   { key: "arabic.enabled", label: "Arabic (العربية) site", group: "site", enabled: false },
   { key: "notify.extraRecipients", label: "Extra alert recipients", group: "notify", enabled: true, value: "" },
+  { key: "booking", label: "Meeting availability", group: "booking", enabled: true, value: BOOKING_DEFAULT },
 ];
 
 async function main() {

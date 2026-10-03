@@ -8,6 +8,7 @@ import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
 import { triggerSiteRebuild } from "@/lib/publish/trigger";
 import { NAV_LINKS } from "@/lib/settings/nav";
+import { mergeBooking } from "@/lib/booking/config";
 import { EMAIL_COPY_DEFAULTS } from "@/lib/email/requests";
 import { WA_DEFAULTS } from "@/lib/whatsapp/requests";
 
@@ -50,6 +51,32 @@ export async function setArabicEnabled(enabled: boolean) {
   await logActivity(user.id, "settings.arabic", "setting", "arabic.enabled", { enabled });
   revalidatePath("/settings");
   after(() => triggerSiteRebuild());
+}
+
+export async function updateBooking(formData: FormData) {
+  const user = await assertCap("settings:manage");
+  const db = await getDb();
+  const days = formData.getAll("days").map(Number).filter((d) => d >= 0 && d <= 6);
+  const types = formData.getAll("types").map(String).filter((t) => t === "online" || t === "site");
+  const blackout = String(formData.get("blackout") ?? "").split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean);
+  const cfg = mergeBooking({
+    days,
+    start: String(formData.get("start") ?? ""),
+    end: String(formData.get("end") ?? ""),
+    slotMinutes: Number(formData.get("slotMinutes")),
+    leadHours: Number(formData.get("leadHours")),
+    daysAhead: Number(formData.get("daysAhead")),
+    perSlot: Number(formData.get("perSlot")),
+    blackout,
+    types,
+    tz: String(formData.get("tz") ?? "Africa/Cairo"),
+  });
+  const now = new Date();
+  await db.insert(siteSettings)
+    .values({ key: "booking", label: "Meeting availability", group: "booking", enabled: true, value: cfg, updatedAt: now })
+    .onConflictDoUpdate({ target: siteSettings.key, set: { value: cfg, updatedAt: now } });
+  await logActivity(user.id, "settings.booking", "setting", "booking", { days: cfg.days.length, slotMinutes: cfg.slotMinutes, types: cfg.types });
+  revalidatePath("/settings");
 }
 
 export async function updateSla(formData: FormData) {
