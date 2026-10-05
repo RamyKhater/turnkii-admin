@@ -93,6 +93,8 @@ export const requests = pgTable("requests", {
   visitSlot: text("visit_slot"), // requested time window (e.g. 10:00)
   visitType: text("visit_type"), // site | online — on-site survey or online meeting
   meetingLink: text("meeting_link"), // generated video-meeting URL for online bookings
+  bookingToken: text("booking_token"), // unguessable token for the customer reschedule/cancel link
+  remindedAt: timestamp("reminded_at", { withTimezone: true }), // when the 24h reminder was sent
   expEmail: text("exp_email"), // email-required A/B arm: 'A' (control) | 'B' (email required)
   firstResponseAt: timestamp("first_response_at", { withTimezone: true }),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),

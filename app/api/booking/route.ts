@@ -78,6 +78,7 @@ export async function POST(req: Request) {
   const channel = d.utmSource ? d.utmSource.charAt(0).toUpperCase() + d.utmSource.slice(1)
     : d.gclid ? "Paid search" : d.fbclid ? "Paid social" : "Direct";
   const meetingLink = d.type === "online" ? `https://meet.jit.si/turnkii-${randomBytes(9).toString("hex")}` : null;
+  const bookingToken = randomBytes(18).toString("hex");
 
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(requests);
   const ref = `TK-${2400 + n}`;
@@ -107,6 +108,7 @@ export async function POST(req: Request) {
       visitSlot: d.time,
       visitType: d.type,
       meetingLink,
+      bookingToken,
       firstResponseAt: now,
     })
     .returning();
@@ -125,7 +127,7 @@ export async function POST(req: Request) {
     try {
       await dispatchBookingEmails({
         requestId: created.id, ref, name: d.name, email: d.email || null, phone: d.phone,
-        date: d.date, time: d.time, type: d.type, meetingLink, location: d.location || null,
+        date: d.date, time: d.time, type: d.type, meetingLink, location: d.location || null, bookingToken,
       });
     } catch (e) { console.error("[booking] email dispatch failed", e); }
   });

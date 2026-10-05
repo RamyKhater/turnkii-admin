@@ -2,6 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "node scripts/migrate.mjs && next build",
+  "crons": [
+    { "path": "/api/cron/booking-reminders", "schedule": "0 7 * * *" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

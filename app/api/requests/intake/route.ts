@@ -9,7 +9,9 @@ import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { getFinancing } from "@/lib/financing/store";
 import { preApprovalLimit } from "@/lib/financing";
 import { dispatchRequestEmails } from "@/lib/email/requests";
+import { dispatchBookingEmails } from "@/lib/email/booking";
 import { dispatchRequestWhatsApp } from "@/lib/whatsapp/requests";
+import { randomBytes } from "crypto";
 
 const schema = z.object({
   contactName: z.string().trim().min(1).max(120),
@@ -117,6 +119,13 @@ export async function POST(req: Request) {
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(requests);
   const ref = `${isFinancing ? "TF" : isService ? "TS" : isProject ? "TP" : "TK"}-${2400 + n}`;
 
+  // A brief that picked a visit day+slot+type is a real booking: confirm it,
+  // generate a meeting link (online) + a reschedule token, and send the booking
+  // confirmation + .ics instead of the generic receipt.
+  const hasVisit = !!(d.visitDay && d.visitSlot && d.visitType);
+  const meetingLink = hasVisit && d.visitType === "online" ? `https://meet.jit.si/turnkii-${randomBytes(9).toString("hex")}` : null;
+  const bookingToken = hasVisit ? randomBytes(18).toString("hex") : null;
+
   const [row] = await db
     .insert(requests)
     .values({
@@ -149,9 +158,12 @@ export async function POST(req: Request) {
       visitDay: d.visitDay || null,
       visitSlot: d.visitSlot || null,
       visitType: d.visitType || null,
+      meetingLink,
+      bookingToken,
       expEmail: d.expEmail || null,
       message: parsed.data.message,
-      status: "new",
+      status: hasVisit ? "survey_booked" : "new",
+      firstResponseAt: hasVisit ? new Date() : null,
       source: "website",
     })
     .returning();
@@ -159,7 +171,17 @@ export async function POST(req: Request) {
   // Email the ops/admin team and confirm to the submitter — after the response
   // so a slow mail provider never delays or fails the public submission.
   after(async () => {
-    try { await dispatchRequestEmails(row); } catch (e) { console.error("[intake] email dispatch failed", e); }
+    try {
+      if (hasVisit) {
+        await dispatchBookingEmails({
+          requestId: row.id, ref: row.ref, name: row.contactName ?? "there", email: row.email, phone: row.phone,
+          date: d.visitDay!, time: d.visitSlot!, type: d.visitType as "online" | "site",
+          meetingLink, location: row.location, bookingToken,
+        });
+      } else {
+        await dispatchRequestEmails(row);
+      }
+    } catch (e) { console.error("[intake] email dispatch failed", e); }
     try { await dispatchRequestWhatsApp(row); } catch (e) { console.error("[intake] whatsapp dispatch failed", e); }
   });
 
