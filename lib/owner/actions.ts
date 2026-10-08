@@ -22,7 +22,7 @@ export async function ownerLogin(_prev: OwnerLoginState, formData: FormData): Pr
   if (!parsed.success) return { error: "Enter a valid email and password." };
   const db = await getDb();
   const [owner] = await db.select().from(owners).where(eq(owners.email, parsed.data.email.toLowerCase().trim())).limit(1);
-  if (!owner || !owner.active || !verifyPassword(parsed.data.password, owner.passwordHash)) {
+  if (!owner || !owner.active || !owner.passwordHash || !verifyPassword(parsed.data.password, owner.passwordHash)) {
     return { error: "Those details don't match an account." };
   }
   await createOwnerSession(owner.id);

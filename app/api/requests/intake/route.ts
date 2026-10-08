@@ -1,8 +1,10 @@
 import { after } from "next/server";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { requests } from "@/lib/db/schema";
+import { requests, owners } from "@/lib/db/schema";
+import { getOwnerFromToken } from "@/lib/owner/session";
+import { bearer } from "@/lib/account/http";
 import { logActivity } from "@/lib/activity";
 import { notifyRoles } from "@/lib/notifications";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
@@ -55,7 +57,7 @@ const schema = z.object({
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
 export async function OPTIONS() {
@@ -126,10 +128,22 @@ export async function POST(req: Request) {
   const meetingLink = hasVisit && d.visitType === "online" ? `https://meet.jit.si/turnkii-${randomBytes(9).toString("hex")}` : null;
   const bookingToken = hasVisit ? randomBytes(18).toString("hex") : null;
 
+  // Link this lead to a self-serve account: a signed-in customer sends a bearer
+  // token; otherwise match an existing account by email. Guests stay unlinked
+  // until they claim their account from the estimate email.
+  let ownerId: number | null = null;
+  const sessOwner = await getOwnerFromToken(bearer(req));
+  if (sessOwner) ownerId = sessOwner.id;
+  else if (parsed.data.email) {
+    const [o] = await db.select({ id: owners.id }).from(owners).where(eq(owners.email, parsed.data.email.toLowerCase().trim())).limit(1);
+    if (o) ownerId = o.id;
+  }
+
   const [row] = await db
     .insert(requests)
     .values({
       ref,
+      ownerId,
       contactName: parsed.data.contactName,
       phone: parsed.data.phone,
       email: parsed.data.email || null,

@@ -53,6 +53,7 @@ export const sessions = pgTable("sessions", {
 export const requests = pgTable("requests", {
   id: serial("id").primaryKey(),
   ref: text("ref").notNull().unique(),
+  ownerId: integer("owner_id"), // links the lead to a self-serve account (by email), when one exists
   contactName: text("contact_name"),
   phone: text("phone"),
   email: text("email"),
@@ -171,10 +172,52 @@ export const owners = pgTable("owners", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   phone: text("phone"),
-  passwordHash: text("password_hash").notNull(),
+  // Nullable: self-serve customers sign in passwordless (magic link / OTP) and
+  // never set a password; staff-created owners may still have one.
+  passwordHash: text("password_hash"),
   active: boolean("active").notNull().default(true),
+  emailVerified: timestamp("email_verified", { withTimezone: true }),
+  marketingConsent: boolean("marketing_consent").notNull().default(false),
+  consentAt: timestamp("consent_at", { withTimezone: true }),
+  source: text("source"), // where the account was created (brief | financing | site | staff)
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Passwordless sign-in: short-lived 6-digit code (and matching magic-link token)
+// emailed to the owner. The code is stored hashed; one-time use; rate-limited.
+export const ownerLoginTokens = pgTable("owner_login_tokens", {
+  id: text("id").primaryKey(), // also the magic-link token (opaque)
+  email: text("email").notNull(),
+  codeHash: text("code_hash").notNull(), // scrypt(salt:key) of the 6-digit code
+  purpose: text("purpose").notNull().default("login"), // login | signup
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Saved styles / inspiration / products a signed-in owner wants to keep.
+export const wishlistItems = pgTable("wishlist_items", {
+  id: serial("id").primaryKey(),
+  ownerId: integer("owner_id").notNull().references(() => owners.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(), // style | inspiration | product
+  ref: text("ref").notNull(), // the item key/slug
+  label: text("label"),
+  meta: jsonb("meta").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Newsletter / offers opt-in — covers non-account signups too (footer form).
+export const subscribers = pgTable("subscribers", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  consent: boolean("consent").notNull().default(true),
+  source: text("source"),
+  unsubToken: text("unsub_token").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type OwnerLoginToken = typeof ownerLoginTokens.$inferSelect;
+export type WishlistItem = typeof wishlistItems.$inferSelect;
+export type Subscriber = typeof subscribers.$inferSelect;
 
 export const ownerSessions = pgTable("owner_sessions", {
   id: text("id").primaryKey(),
