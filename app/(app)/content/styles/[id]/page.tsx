@@ -7,6 +7,8 @@ import { PageHeader, Card } from "@/components/ui";
 import { Field, Textarea, CheckField, SubmitButton } from "@/components/form";
 import { ImageField } from "@/components/content/image-field";
 import { MediaRepeater } from "@/components/content/media-repeater";
+import { MaterialsEditor } from "@/components/content/materials-editor";
+import { RowRepeater } from "@/components/content/row-repeater";
 import { DeleteButton } from "@/components/content/delete-button";
 import { updateStyle } from "@/lib/content/actions";
 
@@ -28,7 +30,7 @@ export default async function StyleEdit({ params }: { params: Promise<{ id: stri
           </div>
         }
       />
-      <div className="max-w-2xl p-6 lg:p-8">
+      <div className="max-w-3xl p-6 lg:p-8">
         <Card className="p-6">
           <form action={updateStyle} className="flex flex-col gap-4">
             <input type="hidden" name="id" value={s.id} />
@@ -50,17 +52,29 @@ export default async function StyleEdit({ params }: { params: Promise<{ id: stri
               ]}
               initial={(s.closeups ?? []) as Record<string, string>[]}
             />
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted">Palette</span>
-              <div className="flex flex-wrap gap-2">
-                {(s.palette ?? []).map((p) => (
-                  <span key={p.hex} className="inline-flex items-center gap-2 rounded-full border border-line px-2.5 py-1 text-xs font-semibold">
-                    <span className="h-4 w-4 rounded-full" style={{ background: p.hex }} />
-                    {p.name}
-                  </span>
-                ))}
-              </div>
-            </div>
+            <RowRepeater
+              name="palette"
+              label="Palette"
+              addLabel="swatch"
+              fields={[
+                { key: "hex", label: "Colour", type: "color" },
+                { key: "name", label: "Swatch name (e.g. Sand)" },
+              ]}
+              initial={(s.palette ?? []) as Record<string, string>[]}
+            />
+            <MaterialsEditor name="materials" initial={s.materials ?? []} />
+            <RowRepeater
+              name="furniture"
+              label="Furniture list"
+              addLabel="item"
+              fields={[
+                { key: "room", label: "Room", width: "basis-28" },
+                { key: "item", label: "Item" },
+                { key: "spec", label: "Spec" },
+                { key: "qty", label: "Qty", width: "basis-20" },
+              ]}
+              initial={(s.furniture ?? []) as Record<string, string>[]}
+            />
             <div className="flex items-center justify-between border-t border-line pt-4">
               <div className="flex items-center gap-4">
                 <Field label="Sort" name="sortOrder" type="number" defaultValue={s.sortOrder} />

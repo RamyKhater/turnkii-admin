@@ -83,6 +83,8 @@ export async function GET() {
       image: s.heroImage,
       palette: s.palette ?? [],
       closeups: s.closeups ?? [],
+      materials: s.materials ?? [],
+      furniture: s.furniture ?? [],
     })),
     services: sv
       .filter((s) => s.enabled)
