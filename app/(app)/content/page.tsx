@@ -39,6 +39,7 @@ export default async function ContentHub() {
     { href: "/content/inspiration", title: "Inspiration board", desc: "Shots — titles, specs, room tags and style.", ...ins },
     { href: "/project-showcases", title: "Project showcase", desc: "Homepage “our recent work” gallery, by service, with supplier credits & ratings.", ...ps },
     { href: "/content/copy", title: "Marketing copy", desc: "Landing hero and headline stats.", total: 2, published: 2 },
+    { href: "/content/why", title: "Why Turnkii", desc: "Homepage “Why Turnkii” section — eyebrow, headline and the three rows.", total: 1, published: 1 },
     { href: "/content/site-copy", title: "Site copy", desc: "Edit any text on the site — headings, body and footer — from one place.", total: 1, published: 1 },
   ];
 

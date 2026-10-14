@@ -250,6 +250,35 @@ export async function saveCopyOverrides(overrides: Record<string, string>) {
   return { count: Object.keys(clean).length };
 }
 
+/** Save the homepage "Why Turnkii" section (eyebrow, headline and the rows —
+ *  each with a title, body, optional image and a named icon preset). Stored as
+ *  the `why` content block and overlaid on the site's built-in defaults. */
+export async function updateWhy(formData: FormData) {
+  const user = await assertCap("content:edit");
+  const rows = jsonArray<{ image?: string; title?: string; body?: string; icon?: string }>(formData.get("rows"))
+    .map((r) => ({
+      title: String(r.title ?? "").trim(),
+      body: String(r.body ?? "").trim(),
+      image: String(r.image ?? "").trim(),
+      icon: String(r.icon ?? "").trim(),
+    }))
+    .filter((r) => r.title || r.body || r.image);
+  const why = {
+    eyebrow: String(formData.get("eyebrow") ?? "").trim(),
+    headline: String(formData.get("headline") ?? "").trim(),
+    rows,
+  };
+  const db = await getDb();
+  await db
+    .insert(contentBlocks)
+    .values({ key: "why", label: "Homepage — Why Turnkii", value: why })
+    .onConflictDoUpdate({ target: contentBlocks.key, set: { value: sql`excluded.value`, updatedAt: new Date() } });
+  await logActivity(user.id, "content.why.update", "content", "why", { rows: rows.length });
+  await triggerSiteRebuild();
+  revalidatePath("/content/why");
+  redirect("/content/why");
+}
+
 export async function saveCopy(formData: FormData) {
   const user = await assertCap("content:edit");
   const db = await getDb();
