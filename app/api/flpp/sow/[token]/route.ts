@@ -8,8 +8,8 @@ import { scopeOfWork } from "@/lib/db/schema";
 // other /api/flpp/* routes) — distinct from the public /api/sow/[token] the
 // marketing site uses. Never writes.
 function authed(req: Request): boolean {
-  const token = process.env.FLPP_API_TOKEN || "dev-shared-token";
-  return req.headers.get("authorization") === `Bearer ${token}`;
+  const token = process.env.FLPP_API_TOKEN;
+  return !!token && req.headers.get("authorization") === `Bearer ${token}`;
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ token: string }> }) {

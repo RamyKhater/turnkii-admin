@@ -79,6 +79,21 @@ async function main() {
   [proj] = await db.select().from(projects).where(eq(projects.id, ens.id));
   check("pct unchanged (still 40)", proj.pctComplete === 40, proj.pctComplete);
 
+  console.log("\n6. FLPP actor attribution on a synced update");
+  await (await eventsPOST(post("/api/flpp/events", { name: "project.progress", ticketRef: TICKET, eventId: "evt-prog2", payload: { pct: 70, milestone: "Week 7 · Paint", actor: { role: "projects", name: "Mina" } } }))).json();
+  const attributed = await db.select().from(projectUpdates).where(and(eq(projectUpdates.projectId, ens.id), eq(projectUpdates.flppActor, "projects · Mina")));
+  check("update carries flpp_actor", attributed.length === 1, attributed.length);
+  [proj] = await db.select().from(projects).where(eq(projects.id, ens.id));
+  check("pct advanced to 70", proj.pctComplete === 70, proj.pctComplete);
+
+  console.log("\n7. handover.ready → handover stage + customer update");
+  await (await eventsPOST(post("/api/flpp/events", { name: "handover.ready", ticketRef: TICKET, eventId: "evt-hand", payload: { actor: { role: "ops", name: "Sara" } } }))).json();
+  [proj] = await db.select().from(projects).where(eq(projects.id, ens.id));
+  check("stage = handover", proj.stage === "handover", proj.stage);
+  check("pct = 100", proj.pctComplete === 100, proj.pctComplete);
+  const handover = await db.select().from(projectUpdates).where(and(eq(projectUpdates.projectId, ens.id), eq(projectUpdates.title, "Ready for handover")));
+  check("handover update created + attributed", handover.length === 1 && handover[0]?.flppActor === "ops · Sara", handover[0]);
+
   console.log(`\n=== ${pass} passed, ${fail} failed ===`);
   process.exit(fail ? 1 : 0);
 }

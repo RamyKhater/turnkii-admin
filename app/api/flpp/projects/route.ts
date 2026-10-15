@@ -8,8 +8,8 @@ import { requests } from "@/lib/db/schema";
 // client, property, scope summary, contract value, design pack ref. No
 // payment-plan detail crosses the boundary. Token-authenticated; never writes.
 function authed(req: Request): boolean {
-  const token = process.env.FLPP_API_TOKEN || "dev-shared-token";
-  return req.headers.get("authorization") === `Bearer ${token}`;
+  const token = process.env.FLPP_API_TOKEN;
+  return !!token && req.headers.get("authorization") === `Bearer ${token}`;
 }
 
 export async function GET(req: Request) {

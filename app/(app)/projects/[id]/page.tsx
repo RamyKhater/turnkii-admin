@@ -67,7 +67,7 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
       <PageHeader
         eyebrow="Project"
         title={pr.name}
-        sub={`${pr.status.replace("_", " ")}${prop ? ` · ${prop.name}` : ""}`}
+        sub={`${pr.stage.replace(/_/g, " ")}${pr.pctComplete ? ` · ${pr.pctComplete}% complete` : ""}${pr.flppTicketRef ? ` · ${pr.flppTicketRef}` : ""}${prop ? ` · ${prop.name}` : ""}`}
         actions={<Link href="/projects" className="rounded-full border border-line px-4 py-2 text-sm font-semibold hover:border-ink">← Projects</Link>}
       />
       <div className="space-y-5 p-6 lg:p-8">

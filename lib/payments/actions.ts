@@ -7,12 +7,22 @@ import { payments, projects } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
 import { notifyRoles } from "@/lib/notifications";
+import { emitToFlpp } from "@/lib/flpp/emit";
 
 async function loadPayment(id: number) {
   const db = await getDb();
   const [p] = await db.select().from(payments).where(eq(payments.id, id)).limit(1);
   if (!p) throw new Error("Payment not found");
   return p;
+}
+
+// A client instalment cleared → tell FLPP so it can fund the supplier payment
+// run (the inbound event FLPP already models). Correlated to the FLPP ticket.
+async function notifyFlppPaid(p: typeof payments.$inferSelect): Promise<void> {
+  if (!p.projectId) return;
+  const db = await getDb();
+  const [proj] = await db.select({ ticket: projects.flppTicketRef }).from(projects).where(eq(projects.id, p.projectId)).limit(1);
+  await emitToFlpp("collections.cleared", proj?.ticket ?? null, { amount: p.amount, instalment: p.label });
 }
 
 function revalidate(projectId: number | null) {
@@ -81,6 +91,7 @@ export async function recordPayment(_prev: PayState, formData: FormData): Promis
   }).where(eq(payments.id, d.id));
 
   await logActivity(user.id, paid ? "payment.paid" : "payment.receipt", "payment", d.id, { amount: p.amount });
+  if (paid) await notifyFlppPaid(p);
   if (!paid) {
     await notifyRoles(["ops_manager", "admin"], {
       type: "payment.receipt", title: `Receipt to verify · ${p.label}`,
@@ -98,6 +109,7 @@ export async function verifyPayment(id: number) {
   const db = await getDb();
   await db.update(payments).set({ status: "paid", paidAt: new Date(), verifiedBy: user.id, updatedAt: new Date() }).where(eq(payments.id, id));
   await logActivity(user.id, "payment.verify", "payment", id, { amount: p.amount });
+  await notifyFlppPaid(p);
   revalidate(p.projectId);
 }
 

@@ -9,8 +9,8 @@ import { scopeOfWork, projects } from "@/lib/db/schema";
 // state (status transitions to shared/changes_requested, comments) is owned here
 // — a re-share never regresses an accepted doc or drops review comments.
 function authed(req: Request): boolean {
-  const token = process.env.FLPP_API_TOKEN || "dev-shared-token";
-  return req.headers.get("authorization") === `Bearer ${token}`;
+  const token = process.env.FLPP_API_TOKEN;
+  return !!token && req.headers.get("authorization") === `Bearer ${token}`;
 }
 
 const INBOUND = new Set(["in_review", "changes_requested", "shared", "viewed"]);

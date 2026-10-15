@@ -7,6 +7,7 @@ import { requests, requestNotes, scopeOfWork, type SowComment } from "@/lib/db/s
 import { assertCap } from "@/lib/auth/guard";
 import { ROLE_LABEL } from "@/lib/auth/rbac";
 import { logActivity } from "@/lib/activity";
+import { emitToFlpp } from "@/lib/flpp/emit";
 
 // The reviewer roles here (admin / ops_manager) act as the Turnkii admin,
 // operations and design reviewers in the SoW review loop.
@@ -41,6 +42,9 @@ export async function acceptSow(requestId: number, token: string) {
   if (!sow) throw new Error("Scope of Work not found.");
   await db.update(scopeOfWork).set({ status: "shared", updatedAt: new Date() }).where(eq(scopeOfWork.token, token));
   await logActivity(user.id, "flpp.sow_accept", "scope_of_work", sow.id, { requestId, docRef: sow.docRef });
+  // Tell FLPP the customer-facing scope is approved (fact, not a command — FLPP
+  // still gates its own scope lock on the design verdict).
+  await emitToFlpp("sow.approved", sow.ticketRef ?? null, { docRef: sow.docRef, requestRef: sow.requestRef });
   revalidatePath(`/requests/${requestId}`);
   return { ok: true, customerUrl: sow.customerUrl };
 }

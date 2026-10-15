@@ -8,13 +8,23 @@ import { activityLog, flppEvents, projects, projectUpdates, projectMedia, paymen
 // from the originating request ref carried in the payload. Supplier-side money
 // events (payment.released, po.*) are audited only — that detail stays in FLPP.
 function authed(req: Request): boolean {
-  const token = process.env.FLPP_API_TOKEN || "dev-shared-token";
-  return req.headers.get("authorization") === `Bearer ${token}`;
+  const token = process.env.FLPP_API_TOKEN;
+  return !!token && req.headers.get("authorization") === `Bearer ${token}`;
 }
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const num = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? Math.round(n) : 0; };
 const clampPct = (v: unknown): number => Math.max(0, Math.min(100, num(v)));
+// Who in FLPP produced this event — stored on the synced update for attribution.
+const actorOf = (p: Record<string, unknown>): string | null => {
+  const a = p.actor;
+  if (typeof a === "string") return a || null;
+  if (a && typeof a === "object") {
+    const o = a as { role?: string; name?: string };
+    return [o.role, o.name].filter(Boolean).join(" · ") || null;
+  }
+  return null;
+};
 
 type Project = typeof projects.$inferSelect;
 
@@ -26,6 +36,7 @@ async function ingest(
   ticketRef: string | null,
 ): Promise<void> {
   const pid = project.id;
+  const flppActor = actorOf(payload);
   switch (name) {
     case "ticket.opened": {
       if (ticketRef && !project.flppTicketRef) {
@@ -36,7 +47,7 @@ async function ingest(
     case "scope.locked": {
       await db.update(projects).set({ stage: "scope_locked", updatedAt: new Date() }).where(eq(projects.id, pid));
       await db.insert(projectUpdates).values({
-        projectId: pid, title: "Scope locked", kind: "note",
+        projectId: pid, flppActor, title: "Scope locked", kind: "note",
         body: "Design approved — scope locked and handed to execution.", visibleToOwner: true,
       });
       break;
@@ -45,7 +56,7 @@ async function ingest(
       const pct = clampPct(payload.pct);
       const milestone = str(payload.milestone) || "Progress update";
       const [u] = await db.insert(projectUpdates).values({
-        projectId: pid, title: milestone, body: str(payload.note) || milestone,
+        projectId: pid, flppActor, title: milestone, body: str(payload.note) || milestone,
         kind: "progress", stage: str(payload.stage) || null, visibleToOwner: true,
       }).returning();
       const media = Array.isArray(payload.media) ? payload.media : [];
@@ -67,7 +78,7 @@ async function ingest(
       const label = str(payload.milestone) || "Milestone certified";
       const amount = num(payload.amount);
       const [u] = await db.insert(projectUpdates).values({
-        projectId: pid, title: label, body: `Milestone certified: ${label}`,
+        projectId: pid, flppActor, title: label, body: `Milestone certified: ${label}`,
         kind: "milestone", milestone: label, amount, visibleToOwner: true,
       }).returning();
       // Raise the client's instalment for this milestone, once (idempotent by label).
@@ -89,15 +100,24 @@ async function ingest(
         await db.update(projects).set({ contractValue: sql`${projects.contractValue} + ${delta}`, updatedAt: new Date() }).where(eq(projects.id, pid));
       }
       await db.insert(projectUpdates).values({
-        projectId: pid, title: "Variation approved", kind: "note",
+        projectId: pid, flppActor, title: "Variation approved", kind: "note",
         body: delta ? `${desc} (EGP ${delta.toLocaleString("en-US")})` : desc, visibleToOwner: true,
       });
       break;
     }
     case "issue.escalated": {
       await db.insert(projectUpdates).values({
-        projectId: pid, title: "Issue escalated", kind: "note",
+        projectId: pid, flppActor, title: "Issue escalated", kind: "note",
         body: str(payload.issue) || "An issue was escalated on site.", visibleToOwner: false,
+      });
+      break;
+    }
+    case "handover.ready": {
+      await db.update(projects).set({ stage: "handover", pctComplete: 100, updatedAt: new Date() }).where(eq(projects.id, pid));
+      await db.insert(projectUpdates).values({
+        projectId: pid, flppActor, title: "Ready for handover", kind: "note",
+        body: str(payload.note) || "Works complete — your home is ready for handover. Final sign-off and your handover pack follow.",
+        visibleToOwner: true,
       });
       break;
     }

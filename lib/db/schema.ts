@@ -15,6 +15,7 @@ export const roleEnum = pgEnum("role", [
   "admin",
   "product_manager",
   "ops_manager",
+  "project_manager",
   "agent",
   "content_editor",
 ]);
@@ -284,6 +285,7 @@ export const projectUpdates = pgTable("project_updates", {
   title: text("title").notNull(),
   body: text("body"),
   kind: text("kind").notNull().default("progress"), // progress | milestone | photo | note
+  flppActor: text("flpp_actor"),                    // who in FLPP produced a synced update (role · name)
   image: text("image"),                             // legacy single image (kept for back-compat)
   // ── Progress/approvals layer ─────────────────────────────────────────────
   stage: text("stage"),                             // "Week 5 · Joinery and doors"

@@ -8,8 +8,8 @@ import { requests, surveyFiles, requestNotes } from "@/lib/db/schema";
 // AI-draft the Scope of Work. Token-authenticated (same guard as other
 // /api/flpp/* routes). Never writes; no cost/pricing detail crosses the boundary.
 function authed(req: Request): boolean {
-  const token = process.env.FLPP_API_TOKEN || "dev-shared-token";
-  return req.headers.get("authorization") === `Bearer ${token}`;
+  const token = process.env.FLPP_API_TOKEN;
+  return !!token && req.headers.get("authorization") === `Bearer ${token}`;
 }
 
 export async function GET(req: Request) {
