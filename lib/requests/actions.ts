@@ -10,6 +10,7 @@ import { assertCap } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/rbac";
 import { logActivity } from "@/lib/activity";
 import { notify, notifyRoles } from "@/lib/notifications";
+import { ensureProjectForRequest } from "@/lib/projects/ensure";
 import { dispatchVisitConfirmation } from "@/lib/whatsapp/requests";
 import { STATUS_META } from "@/components/ui";
 import type { User } from "@/lib/db/schema";
@@ -53,6 +54,12 @@ export async function updateStatus(id: number, status: RequestStatus) {
     body: `Status changed to ${STATUS_META[parsed].label}.`,
   });
   await logActivity(user.id, "request.status", "request", id, { status: parsed });
+  // Won → ensure the project hub exists so FLPP execution and customer-facing
+  // updates have something to attach to. Idempotent and best-effort: a failure
+  // here must never block the status change.
+  if (parsed === "won") {
+    try { await ensureProjectForRequest(id); } catch (e) { console.error("ensureProjectForRequest failed", e); }
+  }
   // Confirm the booked visit to the customer over WhatsApp (best-effort, after
   // the response). The loaded row already carries the visit day/slot/type.
   if (parsed === "survey_booked") {

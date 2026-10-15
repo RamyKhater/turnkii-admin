@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { scopeOfWork } from "@/lib/db/schema";
+import { scopeOfWork, projects } from "@/lib/db/schema";
 
 // Receives an AI-drafted Scope of Work shared from flpp for review. Stored under
 // its (flpp-minted) token; a reviewer here Accepts (→ status `shared`, customer
@@ -65,6 +65,20 @@ export async function POST(req: Request) {
       customerUrl: body.customerUrl ?? null,
       status,
     });
+  }
+
+  // Seam: the SoW share carries both the request ref and the FLPP ticket ref —
+  // the one moment both are known — so bind the project hub to the ticket here.
+  if (body.requestRef && body.ticketRef) {
+    try {
+      const [proj] = await db.select({ id: projects.id }).from(projects).where(eq(projects.requestRef, body.requestRef)).limit(1);
+      if (proj) {
+        await db.update(projects).set({ flppTicketRef: body.ticketRef, stage: "sow_review", updatedAt: new Date() }).where(eq(projects.id, proj.id));
+        await db.update(scopeOfWork).set({ projectId: proj.id }).where(eq(scopeOfWork.token, body.token));
+      }
+    } catch (e) {
+      console.error("sow: project↔ticket bind failed", e);
+    }
   }
 
   return Response.json({ ok: true, token: body.token, status, customerUrl: body.customerUrl ?? existing?.customerUrl ?? null });

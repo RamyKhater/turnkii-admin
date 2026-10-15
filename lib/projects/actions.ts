@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { projects, projectUpdates, projectMedia, projectSignoffs, payments, notifications, properties, requests, requestNotes, surveyFiles } from "@/lib/db/schema";
+import { projects, projectUpdates, projectMedia, projectSignoffs, payments, notifications, properties, requestNotes } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
+import { ensureProjectForRequest } from "@/lib/projects/ensure";
 import { dispatchProjectUpdateWhatsApp } from "@/lib/whatsapp/projects";
 import { photoQA, draftUpdateNote, rejectionToTasks } from "@/lib/ai/progress";
 import { deliveryDigest, type ProjectSignal } from "@/lib/ai/delivery";
@@ -59,33 +60,16 @@ export async function startProjectFromRequest(formData: FormData) {
   const user = await assertCap("payments:manage");
   const requestId = Number(formData.get("requestId"));
   if (!Number.isInteger(requestId)) throw new Error("Invalid request");
+  const { id, created, name } = await ensureProjectForRequest(requestId);
   const db = await getDb();
-  const [req] = await db.select().from(requests).where(eq(requests.id, requestId)).limit(1);
-  if (!req) throw new Error("Request not found");
-
-  const name = [req.contactName || "Project", req.propertyType || req.location || "fit-out"].filter(Boolean).join(" — ");
-  const [row] = await db.insert(projects).values({
-    name,
-    ownerName: req.contactName,
-    ownerPhone: req.phone,
-    ownerEmail: req.email,
-    style: req.style,
-    services: Array.isArray(req.services) ? req.services : [],
-    contractValue: req.indicativeLimit ?? req.financeAmount ?? 0,
-    status: "active",
-    startDate: new Date(),
-  }).returning();
-
-  // Carry the survey outcome across and record the conversion on the request.
-  await db.update(surveyFiles).set({ projectId: row.id }).where(eq(surveyFiles.requestId, requestId));
   await db.insert(requestNotes).values({
     requestId, authorId: user.id, kind: "status",
-    body: `Project started from this request: ${name} (#${row.id}).`,
+    body: created ? `Project started from this request: ${name} (#${id}).` : `Opened existing project ${name} (#${id}).`,
   });
-  await logActivity(user.id, "project.create", "project", row.id, { fromRequest: requestId });
+  await logActivity(user.id, "project.create", "project", id, { fromRequest: requestId, created });
   revalidatePath("/projects");
   revalidatePath(`/requests/${requestId}`);
-  redirect(`/projects/${row.id}`);
+  redirect(`/projects/${id}`);
 }
 
 export async function updateProject(formData: FormData) {

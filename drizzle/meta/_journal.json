@@ -169,6 +169,13 @@
       "when": 1791440792407,
       "tag": "0023_accounts_p0",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792058513693,
+      "tag": "0024_smart_dakota_north",
+      "breakpoints": true
     }
   ]
 }

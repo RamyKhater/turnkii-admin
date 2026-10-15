@@ -226,6 +226,13 @@ export const ownerSessions = pgTable("owner_sessions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Lifecycle stage shared with FLPP's ticket stages; drives the request →
+// project → handover cycle. `status` below is kept for back-compat.
+export const projectStageEnum = pgEnum("project_stage", [
+  "lead", "survey", "sow_review", "won", "scope_locked",
+  "in_execution", "certifying", "handover", "complete", "on_hold", "blocked",
+]);
+
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -234,10 +241,16 @@ export const projects = pgTable("projects", {
   ownerName: text("owner_name"),
   ownerPhone: text("owner_phone"),
   ownerEmail: text("owner_email"),
+  // Seam links: the originating Turnkii request and the FLPP execution ticket.
+  requestId: integer("request_id").references(() => requests.id, { onDelete: "set null" }),
+  requestRef: text("request_ref"), // TRN-… (= FLPP tickets.origination_ref)
+  flppTicketRef: text("flpp_ticket_ref").unique(), // FLP-…, bound at SoW share
   style: text("style"),
   services: jsonb("services").$type<string[]>().notNull().default([]),
   contractValue: integer("contract_value").notNull().default(0), // EGP
-  status: text("status").notNull().default("active"), // active | on_hold | complete
+  status: text("status").notNull().default("active"), // active | on_hold | complete (legacy)
+  stage: projectStageEnum("stage").notNull().default("won"),
+  pctComplete: integer("pct_complete").notNull().default(0),
   startDate: timestamp("start_date", { withTimezone: true }),
   dueDate: timestamp("due_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -641,6 +654,7 @@ export const scopeOfWork = pgTable("scope_of_work", {
   docRef: text("doc_ref").notNull(),
   requestRef: text("request_ref"), // originating Turnkii request (TRN/TK-…)
   ticketRef: text("ticket_ref"), // flpp execution ticket (FLP-…)
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "set null" }), // linked project hub
   // in_review | changes_requested | shared | viewed
   // (shared = accepted → customer link live; viewed = customer opened it)
   status: text("status").notNull().default("in_review"),
@@ -651,3 +665,16 @@ export const scopeOfWork = pgTable("scope_of_work", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export type ScopeOfWork = typeof scopeOfWork.$inferSelect;
+
+// Idempotent ingest log for FLPP → Turnkii events. Keeps the audit the old
+// route wrote, and dedupes replays by the event's own id.
+export const flppEvents = pgTable("flpp_events", {
+  id: serial("id").primaryKey(),
+  eventId: text("event_id").unique(), // dedupe key from FLPP (when provided)
+  name: text("name").notNull(), // e.g. project.progress
+  ticketRef: text("ticket_ref"), // FLP-… carried on the event
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "set null" }),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type FlppEvent = typeof flppEvents.$inferSelect;
