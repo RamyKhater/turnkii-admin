@@ -8,7 +8,7 @@ import type { Payment } from "@/lib/db/schema";
 const input = "rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none focus:border-ink";
 const lbl = "text-xs font-bold uppercase tracking-wider text-muted";
 
-function RecordDialog({ payment, onClose }: { payment: Payment; onClose: () => void }) {
+function RecordDialog({ payment, canVerify, onClose }: { payment: Payment; canVerify: boolean; onClose: () => void }) {
   const [state, action, pending] = useActionState<PayState, FormData>(recordPayment, {});
   if (state.ok) onClose();
   return (
@@ -20,8 +20,8 @@ function RecordDialog({ payment, onClose }: { payment: Payment; onClose: () => v
           <input type="hidden" name="id" value={payment.id} />
           <label className="flex flex-col gap-1.5">
             <span className={lbl}>Outcome</span>
-            <select name="mode" defaultValue="paid" className={input + " font-semibold"}>
-              <option value="paid">Mark as paid (verified)</option>
+            <select name="mode" defaultValue={canVerify ? "paid" : "pending"} className={input + " font-semibold"}>
+              {canVerify && <option value="paid">Mark as paid (verified)</option>}
               <option value="pending">Log receipt · awaiting verification</option>
             </select>
           </label>
@@ -50,28 +50,29 @@ function RecordDialog({ payment, onClose }: { payment: Payment; onClose: () => v
   );
 }
 
-export function PaymentActions({ payment }: { payment: Payment }) {
+export function PaymentActions({ payment, canRecord = false, canVerify = false }: { payment: Payment; canRecord?: boolean; canVerify?: boolean }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const { state } = paymentState(payment);
+  const openPayment = state !== "paid" && state !== "void";
 
   return (
     <div className="flex items-center justify-end gap-2">
       {payment.receiptUrl && (
         <a href={payment.receiptUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-olive hover:text-ink" title="View receipt">Receipt</a>
       )}
-      {state === "pending" && (
+      {state === "pending" && canVerify && (
         <button onClick={() => start(() => verifyPayment(payment.id))} disabled={pending}
           className="rounded-full bg-ok/12 px-3 py-1.5 text-xs font-bold text-ok hover:bg-ok/20 disabled:opacity-50">Verify</button>
       )}
-      {state !== "paid" && state !== "void" && (
+      {openPayment && canRecord && (
         <button onClick={() => setOpen(true)} className="rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-cream hover:bg-lime hover:text-ink">Record</button>
       )}
-      {state !== "paid" && state !== "void" && (
+      {openPayment && canVerify && (
         <button onClick={() => { if (confirm("Void this payment?")) start(() => voidPayment(payment.id)); }} disabled={pending}
           className="text-xs font-bold text-muted hover:text-crit disabled:opacity-50">Void</button>
       )}
-      {open && <RecordDialog payment={payment} onClose={() => setOpen(false)} />}
+      {open && <RecordDialog payment={payment} canVerify={canVerify} onClose={() => setOpen(false)} />}
     </div>
   );
 }

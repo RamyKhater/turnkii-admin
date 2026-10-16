@@ -25,6 +25,8 @@ const MEDIA_LIBRARY = [
 export default async function ProjectDetail({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireCap("payments:view");
   const manage = can(user.role, "payments:manage");
+  const canRecord = can(user.role, "payments:record");
+  const canVerify = can(user.role, "payments:verify");
   const { id } = await params;
   const db = await getDb();
   const [pr] = await db.select().from(projects).where(eq(projects.id, Number(id))).limit(1);
@@ -129,13 +131,13 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
                     <td className="px-3 py-3 font-bold tabular">{fmtEGP(p.amount)}</td>
                     <td className="px-3 py-3 text-sub tabular">{p.dueDate ? new Date(p.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</td>
                     <td className="px-3 py-3"><PaymentStateBadge payment={p} /></td>
-                    <td className="px-5 py-3 text-right">{manage ? <PaymentActions payment={p} /> : (p.receiptUrl && <a href={p.receiptUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-olive">Receipt</a>)}</td>
+                    <td className="px-5 py-3 text-right">{(canRecord || canVerify) ? <PaymentActions payment={p} canRecord={canRecord} canVerify={canVerify} /> : (p.receiptUrl && <a href={p.receiptUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-olive">Receipt</a>)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {manage && (
+          {canRecord && (
             <div className="border-t border-line p-5">
               <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted">Add a scheduled payment</h3>
               <AddPaymentForm projectId={pr.id} />

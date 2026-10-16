@@ -16,6 +16,7 @@ export const roleEnum = pgEnum("role", [
   "product_manager",
   "ops_manager",
   "project_manager",
+  "finance",
   "agent",
   "content_editor",
 ]);

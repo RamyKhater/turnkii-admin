@@ -14,7 +14,8 @@ export default async function PaymentsPage({
   searchParams: Promise<{ state?: string }>;
 }) {
   const user = await requireCap("payments:view");
-  const manage = can(user.role, "payments:manage");
+  const canRecord = can(user.role, "payments:record");
+  const canVerify = can(user.role, "payments:verify");
   const sp = await searchParams;
   const db = await getDb();
 
@@ -82,7 +83,7 @@ export default async function PaymentsPage({
                   <th className="px-3 py-3 font-bold">Amount</th>
                   <th className="px-3 py-3 font-bold">Due</th>
                   <th className="px-3 py-3 font-bold">Status</th>
-                  <th className="px-5 py-3 font-bold text-right">{manage ? "Actions" : ""}</th>
+                  <th className="px-5 py-3 font-bold text-right">{(canRecord || canVerify) ? "Actions" : ""}</th>
                 </tr>
               </thead>
               <tbody>
@@ -99,7 +100,7 @@ export default async function PaymentsPage({
                     <td className="px-3 py-3 font-bold tabular">{fmtEGP(p.amount)}</td>
                     <td className="px-3 py-3 text-sub tabular">{p.dueDate ? new Date(p.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</td>
                     <td className="px-3 py-3"><PaymentStateBadge payment={p} /></td>
-                    <td className="px-5 py-3 text-right">{manage ? <PaymentActions payment={p} /> : (p.receiptUrl && <a href={p.receiptUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-olive">Receipt</a>)}</td>
+                    <td className="px-5 py-3 text-right">{(canRecord || canVerify) ? <PaymentActions payment={p} canRecord={canRecord} canVerify={canVerify} /> : (p.receiptUrl && <a href={p.receiptUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-olive">Receipt</a>)}</td>
                   </tr>
                 ))}
                 {rows.length === 0 && <tr><td colSpan={6} className="px-5 py-12 text-center text-muted">No payments match this filter.</td></tr>}

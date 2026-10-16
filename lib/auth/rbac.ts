@@ -4,7 +4,8 @@ export const ROLES: { value: Role; label: string; blurb: string }[] = [
   { value: "admin", label: "Admin", blurb: "Full access to everything, including users and settings." },
   { value: "product_manager", label: "Product manager", blurb: "Performance analytics and all site content." },
   { value: "ops_manager", label: "Operations manager", blurb: "Assign and manage all requests; track the team." },
-  { value: "project_manager", label: "Project manager", blurb: "Run live projects — updates, payments and handover; no settings or users." },
+  { value: "project_manager", label: "Project manager", blurb: "Run live projects — updates, record payments and handover; no settings or users." },
+  { value: "finance", label: "Finance", blurb: "Verify and clear client payments, and reconcile the money. Cannot clear a payment they recorded." },
   { value: "agent", label: "Sales / field agent", blurb: "Own assigned requests; log calls, surveys and notes." },
   { value: "content_editor", label: "Content editor", blurb: "Edit site content — styles, marketplace, copy, inspiration." },
 ];
@@ -28,6 +29,8 @@ export type Capability =
   | "properties:edit"
   | "payments:view"
   | "payments:manage"
+  | "payments:record"  // raise a payment / log a receipt (pending)
+  | "payments:verify"  // clear/verify a payment to paid — separation of duties
   | "projects:manage"
   | "pricing:manage"
   | "proposals:manage"
@@ -40,7 +43,7 @@ const MATRIX: Record<Role, Capability[]> = {
   admin: [
     "requests:view_all", "requests:create", "requests:assign", "requests:update",
     "requests:delete", "requests:note", "analytics:view", "content:edit",
-    "properties:view", "properties:edit", "payments:view", "payments:manage",
+    "properties:view", "properties:edit", "payments:view", "payments:manage", "payments:record", "payments:verify",
     "projects:manage", "pricing:manage", "proposals:manage", "showcases:manage", "tasks:manage",
     "settings:manage", "users:manage",
   ],
@@ -48,12 +51,16 @@ const MATRIX: Record<Role, Capability[]> = {
   ops_manager: [
     "requests:view_all", "requests:create", "requests:assign", "requests:update",
     "requests:note", "analytics:view", "properties:view", "properties:edit",
-    "payments:view", "payments:manage", "projects:manage", "proposals:manage", "showcases:manage", "tasks:manage",
+    "payments:view", "payments:manage", "payments:record", "projects:manage", "proposals:manage", "showcases:manage", "tasks:manage",
   ],
   project_manager: [
     "requests:view_all", "requests:update", "requests:note", "analytics:view",
-    "properties:view", "payments:view", "payments:manage", "projects:manage",
+    "properties:view", "payments:view", "payments:manage", "payments:record", "projects:manage",
     "proposals:manage", "showcases:manage", "tasks:manage",
+  ],
+  finance: [
+    "requests:view_all", "analytics:view", "properties:view",
+    "payments:view", "payments:record", "payments:verify",
   ],
   agent: ["requests:view_assigned", "requests:update", "requests:note", "proposals:manage", "showcases:manage"],
   content_editor: ["content:edit"],

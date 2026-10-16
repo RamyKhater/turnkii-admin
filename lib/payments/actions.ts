@@ -44,7 +44,7 @@ const addSchema = z.object({
 export type PayState = { error?: string; ok?: boolean };
 
 export async function addPayment(_prev: PayState, formData: FormData): Promise<PayState> {
-  const user = await assertCap("payments:manage");
+  const user = await assertCap("payments:record");
   const parsed = addSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
@@ -71,14 +71,19 @@ const recordSchema = z.object({
 
 /** Record a payment: mark paid, or log a submitted bank-transfer receipt as pending verification. */
 export async function recordPayment(_prev: PayState, formData: FormData): Promise<PayState> {
-  const user = await assertCap("payments:manage");
   const parsed = recordSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
-  const p = await loadPayment(d.id);
-  const db = await getDb();
-
+  // Logging a receipt needs payments:record; clearing it to paid needs the
+  // separate payments:verify capability (separation of duties).
   const paid = d.mode === "paid";
+  const user = await assertCap(paid ? "payments:verify" : "payments:record");
+  const p = await loadPayment(d.id);
+  // Four-eyes: you cannot clear a payment you recorded.
+  if (paid && p.recordedBy && p.recordedBy === user.id) {
+    return { error: "A payment must be cleared by someone other than whoever recorded it." };
+  }
+  const db = await getDb();
   await db.update(payments).set({
     status: paid ? "paid" : "pending",
     method: d.method || "bank_transfer",
@@ -93,7 +98,7 @@ export async function recordPayment(_prev: PayState, formData: FormData): Promis
   await logActivity(user.id, paid ? "payment.paid" : "payment.receipt", "payment", d.id, { amount: p.amount });
   if (paid) await notifyFlppPaid(p);
   if (!paid) {
-    await notifyRoles(["ops_manager", "admin"], {
+    await notifyRoles(["finance", "admin"], {
       type: "payment.receipt", title: `Receipt to verify · ${p.label}`,
       body: `EGP ${p.amount.toLocaleString()} awaiting verification`,
       entity: "project", entityId: p.projectId ?? undefined, href: p.projectId ? `/projects/${p.projectId}` : "/payments",
@@ -104,8 +109,12 @@ export async function recordPayment(_prev: PayState, formData: FormData): Promis
 }
 
 export async function verifyPayment(id: number) {
-  const user = await assertCap("payments:manage");
+  const user = await assertCap("payments:verify");
   const p = await loadPayment(id);
+  // Four-eyes: the verifier must differ from whoever recorded the payment.
+  if (p.recordedBy && p.recordedBy === user.id) {
+    throw new Error("A payment must be verified by someone other than whoever recorded it.");
+  }
   const db = await getDb();
   await db.update(payments).set({ status: "paid", paidAt: new Date(), verifiedBy: user.id, updatedAt: new Date() }).where(eq(payments.id, id));
   await logActivity(user.id, "payment.verify", "payment", id, { amount: p.amount });
@@ -114,7 +123,7 @@ export async function verifyPayment(id: number) {
 }
 
 export async function voidPayment(id: number) {
-  const user = await assertCap("payments:manage");
+  const user = await assertCap("payments:verify");
   const p = await loadPayment(id);
   const db = await getDb();
   await db.update(payments).set({ status: "void", updatedAt: new Date() }).where(eq(payments.id, id));

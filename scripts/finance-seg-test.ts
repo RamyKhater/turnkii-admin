@@ -1,0 +1,11 @@
+import { can } from "@/lib/auth/rbac";
+let pass=0, fail=0;
+const ck=(l:string,c:boolean)=>{c?pass++:fail++;console.log(`  ${c?"✓":"✗"} ${l}`);};
+console.log("segregation of duties — record ≠ verify");
+ck("admin records", can("admin","payments:record")); ck("admin verifies", can("admin","payments:verify"));
+ck("finance records", can("finance","payments:record")); ck("finance verifies", can("finance","payments:verify")); ck("finance views", can("finance","payments:view"));
+ck("ops_manager records", can("ops_manager","payments:record")); ck("ops_manager CANNOT verify", !can("ops_manager","payments:verify"));
+ck("project_manager records", can("project_manager","payments:record")); ck("project_manager CANNOT verify", !can("project_manager","payments:verify"));
+ck("product_manager CANNOT record", !can("product_manager","payments:record")); ck("product_manager CANNOT verify", !can("product_manager","payments:verify"));
+ck("agent CANNOT record", !can("agent","payments:record"));
+console.log(`\n=== ${pass} passed, ${fail} failed ===`); process.exit(fail?1:0);
