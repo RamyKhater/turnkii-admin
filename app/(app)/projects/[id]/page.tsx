@@ -4,7 +4,7 @@ import { eq, asc, desc, inArray } from "drizzle-orm";
 import { requireCap } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { projects, payments, properties, projectUpdates, projectMedia, projectSignoffs, styles, surveyFiles } from "@/lib/db/schema";
+import { projects, payments, properties, projectUpdates, projectMedia, projectSignoffs, styles, surveyFiles, flppEvents } from "@/lib/db/schema";
 import { PageHeader, Card, StatTile } from "@/components/ui";
 import { fmtEGP, summarize, KIND_LABEL } from "@/lib/payments";
 import { PaymentActions, PaymentStateBadge, AddPaymentForm } from "@/components/payments/controls";
@@ -34,6 +34,10 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
   const sum = summarize(schedule, pr.contractValue);
   const canProgress = can(user.role, "projects:manage");
   const updates = await db.select().from(projectUpdates).where(eq(projectUpdates.projectId, pr.id)).orderBy(desc(projectUpdates.createdAt));
+  // Cross-system timeline: the FLPP events ingested for this project + a deep link to the ticket.
+  const events = await db.select().from(flppEvents).where(eq(flppEvents.projectId, pr.id)).orderBy(desc(flppEvents.receivedAt)).limit(40);
+  const flppBase = (process.env.FLPP_API_URL ?? "").replace(/\/$/, "");
+  const flppTicketUrl = flppBase && pr.flppTicketRef ? `${flppBase}/tickets/${pr.flppTicketRef}` : null;
   const updateIds = updates.map((u) => u.id);
   const media = updateIds.length ? await db.select().from(projectMedia).where(inArray(projectMedia.updateId, updateIds)).orderBy(asc(projectMedia.sort)) : [];
   const signoffs = updateIds.length ? await db.select().from(projectSignoffs).where(inArray(projectSignoffs.updateId, updateIds)) : [];
@@ -71,6 +75,17 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
         actions={<Link href="/projects" className="rounded-full border border-line px-4 py-2 text-sm font-semibold hover:border-ink">← Projects</Link>}
       />
       <div className="space-y-5 p-6 lg:p-8">
+        {pr.riskFlag && (
+          <Card className="border-crit/40 bg-crit-soft/40 p-4">
+            <div className="flex items-start gap-3">
+              <span className="text-lg text-crit" aria-hidden>⚠</span>
+              <div>
+                <div className="text-sm font-bold text-crit">At risk</div>
+                <div className="text-sm text-ink">{pr.riskFlag}{pr.riskAt ? ` · flagged ${new Date(pr.riskAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}` : ""}</div>
+              </div>
+            </div>
+          </Card>
+        )}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatTile label="Contract value" value={fmtEGP(sum.contractValue)} />
           <StatTile label="Collected" value={fmtEGP(sum.collected)} hint={`${sum.progress}%`} />
@@ -171,6 +186,25 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
         <div>
           <h2 className="mb-3 text-sm font-bold">Shared media &amp; client decisions</h2>
           <ProgressTimeline projectId={pr.id} updates={timeline} manage={canProgress} />
+
+        <Card className="p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-bold">FLPP timeline</h2>
+            {flppTicketUrl && <a href={flppTicketUrl} target="_blank" rel="noreferrer" className="text-sm font-bold text-olive hover:text-ink">View ticket {pr.flppTicketRef} →</a>}
+          </div>
+          {events.length === 0 ? (
+            <p className="mt-3 text-sm text-muted">No execution events from FLPP yet.</p>
+          ) : (
+            <ol className="mt-3 space-y-1.5">
+              {events.map((e) => (
+                <li key={e.id} className="flex items-baseline justify-between gap-3 border-b border-line/50 pb-1.5 text-sm last:border-0">
+                  <span className="font-mono text-xs font-semibold text-ink">{e.name}</span>
+                  <span className="shrink-0 text-xs text-muted tabular-nums">{new Date(e.receivedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </Card>
         </div>
       </div>
     </>

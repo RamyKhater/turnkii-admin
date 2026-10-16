@@ -94,6 +94,14 @@ async function main() {
   const handover = await db.select().from(projectUpdates).where(and(eq(projectUpdates.projectId, ens.id), eq(projectUpdates.title, "Ready for handover")));
   check("handover update created + attributed", handover.length === 1 && handover[0]?.flppActor === "ops · Sara", handover[0]);
 
+  console.log("\n8. supply/pricing risk flag (F3)");
+  await (await eventsPOST(post("/api/flpp/events", { name: "po.shortfall", ticketRef: TICKET, eventId: "evt-short", payload: { reason: "Tiles short on a PO" } }))).json();
+  [proj] = await db.select().from(projects).where(eq(projects.id, ens.id));
+  check("risk flag set", proj.riskFlag === "Tiles short on a PO", proj.riskFlag);
+  await (await eventsPOST(post("/api/flpp/events", { name: "po.delivered", ticketRef: TICKET, eventId: "evt-deliv", payload: {} }))).json();
+  [proj] = await db.select().from(projects).where(eq(projects.id, ens.id));
+  check("risk flag cleared on delivery", proj.riskFlag === null, proj.riskFlag);
+
   console.log(`\n=== ${pass} passed, ${fail} failed ===`);
   process.exit(fail ? 1 : 0);
 }
