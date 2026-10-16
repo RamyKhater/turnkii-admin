@@ -68,6 +68,10 @@ export default async function RequestDetailPage({
     ? await db.select({ id: projects.id, name: projects.name }).from(projects).orderBy(desc(projects.createdAt)).limit(200)
     : [];
   const surveyLinkedProjectId = surveyRows.find((f) => f.projectId)?.projectId ?? null;
+  // The project hub for this request (if any) — surfaces the FLPP ticket back.
+  const [linkedProject] = await db
+    .select({ id: projects.id, stage: projects.stage, flppTicketRef: projects.flppTicketRef, pctComplete: projects.pctComplete })
+    .from(projects).where(eq(projects.requestId, id)).limit(1);
   const canStartProject = can(user.role, "payments:manage");
 
   // flpp Scope-of-Work handoff: share the survey to flpp, then review the
@@ -128,6 +132,9 @@ export default async function RequestDetailPage({
     ["Style", req.style ? styleName.get(req.style) ?? req.style : "—"],
     ["Services", req.services?.length ? req.services.join(", ") : "—"],
     ["Financing", req.budgetPlan ?? "—"],
+    ["Materials", req.materials?.length ? req.materials.join(", ") : "—"],
+    ["Fit-out package", req.pkg ?? "—"],
+    ["Timeline", req.timeline ?? "—"],
     ["Traffic source", req.channel ?? "—"],
     ...((req.utmCampaign || req.utmSource || req.gclid || req.fbclid)
       ? ([["Campaign",
@@ -257,6 +264,12 @@ export default async function RequestDetailPage({
                   <p className="mt-1 text-sm text-sub">
                     Share the survey with flpp to AI-draft the Scope of Work, then review what flpp sends back — accept to share with the customer, or request edits.
                   </p>
+                  {linkedProject?.flppTicketRef && (
+                    <div className="mt-2 flex items-center gap-2 text-xs">
+                      <span className="rounded-full bg-sand px-2.5 py-1 font-mono font-bold text-ink">{linkedProject.flppTicketRef}</span>
+                      <span className="font-semibold capitalize text-sub">{linkedProject.stage.replace(/_/g, " ")}{linkedProject.pctComplete ? ` · ${linkedProject.pctComplete}% complete` : ""}</span>
+                    </div>
+                  )}
                 </div>
                 <ShareSurveyButton requestId={id} sharedAt={req.flppSharedAt} ready={surveyDone} />
               </div>

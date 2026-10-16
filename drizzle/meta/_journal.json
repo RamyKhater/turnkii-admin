@@ -183,6 +183,13 @@
       "when": 1792061982271,
       "tag": "0025_cute_runaways",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792134733403,
+      "tag": "0026_sour_alex_power",
+      "breakpoints": true
     }
   ]
 }

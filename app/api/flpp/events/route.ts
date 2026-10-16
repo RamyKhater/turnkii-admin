@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { activityLog, flppEvents, projects, projectUpdates, projectMedia, payments } from "@/lib/db/schema";
+import { activityLog, flppEvents, projects, projectUpdates, projectMedia, payments, requests } from "@/lib/db/schema";
+import { notify } from "@/lib/notifications";
 
 // Receives FLPP → Turnkii events and maps them onto the customer-facing project
 // (updates, media, payments, stage). Every event is logged for audit and
@@ -41,6 +42,17 @@ async function ingest(
     case "ticket.opened": {
       if (ticketRef && !project.flppTicketRef) {
         await db.update(projects).set({ flppTicketRef: ticketRef, updatedAt: new Date() }).where(eq(projects.id, pid));
+        // Acknowledge the handoff: tell the request's owner FLPP has opened execution.
+        if (project.requestId) {
+          const [r] = await db.select({ assignedTo: requests.assignedTo, ref: requests.ref }).from(requests).where(eq(requests.id, project.requestId)).limit(1);
+          if (r?.assignedTo) {
+            await notify(r.assignedTo, {
+              type: "flpp.ticket_opened", title: `FLPP opened execution · ${r.ref}`,
+              body: `Ticket ${ticketRef} is live for ${project.name}.`,
+              entity: "project", entityId: pid, href: `/projects/${pid}`,
+            });
+          }
+        }
       }
       break;
     }
