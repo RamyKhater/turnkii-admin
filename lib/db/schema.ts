@@ -68,6 +68,9 @@ export const requests = pgTable("requests", {
   kitchen: text("kitchen"),
   hvac: text("hvac"),
   budgetPlan: text("budget_plan"),
+  materials: jsonb("materials").$type<string[]>().notNull().default([]), // material choices from the brief
+  pkg: text("package"),       // fit-out package / level chosen in the estimate
+  timeline: text("timeline"), // desired timeline from the brief
   // Lead type discriminator: a full site brief, or a financing pre-approval.
   kind: text("kind").notNull().default("brief"), // brief | financing
   monthlyIncome: integer("monthly_income"), // EGP/month, from pre-approval

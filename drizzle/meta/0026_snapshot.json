@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "id": "721c7f1a-8422-456d-a6b6-4c45955c55de",
+=======
+  "id": "6e3f485d-a00b-4f2e-abb7-fdd0cea08167",
+>>>>>>> request-intake-handoff
   "prevId": "ba0d020a-4301-49f9-b984-c00e8c96e76c",
   "version": "7",
   "dialect": "postgresql",
@@ -2232,6 +2236,28 @@
           "primaryKey": false,
           "notNull": false
         },
+<<<<<<< HEAD
+=======
+        "materials": {
+          "name": "materials",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "package": {
+          "name": "package",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "timeline": {
+          "name": "timeline",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+>>>>>>> request-intake-handoff
         "kind": {
           "name": "kind",
           "type": "text",
@@ -3750,7 +3776,10 @@
         "product_manager",
         "ops_manager",
         "project_manager",
+<<<<<<< HEAD
         "finance",
+=======
+>>>>>>> request-intake-handoff
         "agent",
         "content_editor"
       ]
