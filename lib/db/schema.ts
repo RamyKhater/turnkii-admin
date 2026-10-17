@@ -256,6 +256,8 @@ export const projects = pgTable("projects", {
   status: text("status").notNull().default("active"), // active | on_hold | complete (legacy)
   stage: projectStageEnum("stage").notNull().default("won"),
   pctComplete: integer("pct_complete").notNull().default(0),
+  riskFlag: text("risk_flag"),  // active cross-system risk reason (supply/pricing), null = none
+  riskAt: timestamp("risk_at", { withTimezone: true }),
   startDate: timestamp("start_date", { withTimezone: true }),
   dueDate: timestamp("due_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

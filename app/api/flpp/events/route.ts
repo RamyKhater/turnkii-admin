@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { activityLog, flppEvents, projects, projectUpdates, projectMedia, payments, requests } from "@/lib/db/schema";
-import { notify } from "@/lib/notifications";
+import { notify, notifyRoles } from "@/lib/notifications";
 
 // Receives FLPP → Turnkii events and maps them onto the customer-facing project
 // (updates, media, payments, stage). Every event is logged for audit and
@@ -133,7 +133,25 @@ async function ingest(
       });
       break;
     }
-    // payment.released, po.delivered, po.shortfall, …: supplier-side — audit only.
+    case "po.shortfall":
+    case "pricing.blocked": {
+      // Cross-system risk — the reason only, never supplier detail.
+      const reason = str(payload.reason) || (name === "po.shortfall" ? "Supply delay on a purchase order" : "Pricing being revised");
+      await db.update(projects).set({ riskFlag: reason, riskAt: new Date(), updatedAt: new Date() }).where(eq(projects.id, pid));
+      await db.insert(projectUpdates).values({ projectId: pid, flppActor, title: "Risk flagged", kind: "note", body: reason, visibleToOwner: false });
+      await notifyRoles(["ops_manager", "project_manager", "admin"], {
+        type: "flpp.risk", title: `Project at risk · ${project.name}`, body: reason,
+        entity: "project", entityId: pid, href: `/projects/${pid}`,
+      });
+      break;
+    }
+    case "po.delivered":
+    case "pricing.ready": {
+      // Risk cleared — the PO was fulfilled, or pricing was published.
+      if (project.riskFlag) await db.update(projects).set({ riskFlag: null, riskAt: null, updatedAt: new Date() }).where(eq(projects.id, pid));
+      break;
+    }
+    // payment.released and other supplier-side money events: audit only.
     default:
       break;
   }
