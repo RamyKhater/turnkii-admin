@@ -3,10 +3,11 @@ import Link from "next/link";
 import { requireOwner } from "@/lib/owner/session";
 import { getDb } from "@/lib/db";
 import { inArray, desc, asc } from "drizzle-orm";
-import { properties, projects, payments, projectUpdates, projectMedia, projectSignoffs } from "@/lib/db/schema";
+import { properties, projects, payments, projectUpdates, projectMedia, projectSignoffs, variations, projectHandovers } from "@/lib/db/schema";
 import { PortalShell } from "@/components/portal/shell";
 import { PayButton } from "@/components/portal/pay-dialog";
 import { Approvals, type PUpdate } from "@/components/portal/approvals";
+import { VariationApprovals, HandoverSignoff } from "@/components/portal/seam-approvals";
 import { fmtEGP, summarize, paymentState, PAYMENT_STATE_META, KIND_LABEL } from "@/lib/payments";
 
 export default async function PortalHome() {
@@ -27,6 +28,14 @@ export default async function PortalHome() {
     .sort((a, b) => (a.st.daysTillDue ?? 0) - (b.st.daysTillDue ?? 0));
 
   const projName = new Map(projs.map((p) => [p.id, p.name]));
+  // F5 — client-borne variations awaiting this owner's approval.
+  const pendingVos = projs.length
+    ? (await db.select().from(variations).where(inArray(variations.projectId, projs.map((p) => p.id)))).filter((v) => v.status === "pending")
+    : [];
+  // F6 — handover packs ready for this owner to review and sign off.
+  const readyHandovers = projs.length
+    ? (await db.select().from(projectHandovers).where(inArray(projectHandovers.projectId, projs.map((p) => p.id)))).filter((h) => h.status === "ready")
+    : [];
   const updates = projs.length
     ? (await db.select().from(projectUpdates).where(inArray(projectUpdates.projectId, projs.map((p) => p.id))).orderBy(desc(projectUpdates.createdAt)))
         .filter((u) => u.visibleToOwner).slice(0, 8)
@@ -87,6 +96,32 @@ export default async function PortalHome() {
           {projs.length === 0 && <p className="text-sm text-muted">No projects yet.</p>}
         </div>
       </section>
+
+      {readyHandovers.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-bold">Your home is ready</h2>
+          <p className="mb-3 text-xs text-sub">Review your handover pack and sign off to complete your project.</p>
+          <div className="space-y-3">
+            {readyHandovers.map((h) => (
+              <HandoverSignoff key={h.projectId} handover={{
+                projectId: h.projectId, projectName: projName.get(h.projectId) ?? "Your project",
+                summary: h.summary, warranty: h.warranty, deliveredByName: h.deliveredByName,
+                media: h.media, signed: h.status === "signed",
+              }} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pendingVos.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-bold">Changes for your approval</h2>
+          <p className="mb-3 text-xs text-sub">A change was proposed on your project. Your contract value only moves once you approve.</p>
+          <VariationApprovals variations={pendingVos.map((v) => ({
+            id: v.id, ref: v.ref, description: v.description, amount: v.amount, projectName: projName.get(v.projectId) ?? "",
+          }))} />
+        </section>
+      )}
 
       {approvals.length > 0 && (
         <section className="mt-8">

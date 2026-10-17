@@ -1,11 +1,12 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { projects, projectUpdates, projectMedia, projectSignoffs, payments } from "@/lib/db/schema";
+import { projects, projectUpdates, projectMedia, projectSignoffs, payments, variations, projectHandovers } from "@/lib/db/schema";
 import { requireOwner } from "@/lib/owner/session";
 import { logActivity } from "@/lib/activity";
+import { emitToFlpp } from "@/lib/flpp/emit";
 
 /** Resolve the owner-scoped chain media -> update -> project, or null if not theirs. */
 async function ownedMedia(mediaId: number, ownerId: number) {
@@ -85,5 +86,66 @@ export async function ownerSignoff(updateId: number): Promise<DecideState> {
   await logActivity(null, "owner.signoff", "project", p.id);
   revalidatePath("/portal");
   revalidatePath(`/projects/${p.id}`);
+  return { ok: true };
+}
+
+/** F5 — the customer approves or declines a client-borne variation in their
+ *  account. Only on approval does the contract value move; we then push
+ *  variation.accepted back to FLPP so it applies the change on its side. */
+export async function ownerDecideVariation(variationId: number, approve: boolean): Promise<DecideState> {
+  const owner = await requireOwner();
+  const db = await getDb();
+  const [v] = await db.select().from(variations).where(eq(variations.id, variationId)).limit(1);
+  if (!v) return { error: "Not found." };
+  const [p] = await db.select().from(projects).where(eq(projects.id, v.projectId)).limit(1);
+  if (!p || p.ownerId !== owner.id) return { error: "Not found." };
+  if (v.status !== "pending") return { ok: true }; // already decided — idempotent
+
+  await db.update(variations).set({
+    status: approve ? "accepted" : "declined", decidedByName: owner.name, decidedAt: new Date(),
+  }).where(eq(variations.id, variationId));
+
+  if (approve) {
+    await db.update(projects).set({
+      contractValue: sql`${projects.contractValue} + ${v.amount}`, updatedAt: new Date(),
+    }).where(eq(projects.id, p.id));
+    await db.insert(projectUpdates).values({
+      projectId: p.id, title: "Variation approved", kind: "note",
+      body: `${v.description} — EGP ${v.amount.toLocaleString("en-US")} added to your contract.`, visibleToOwner: true,
+    });
+  }
+  // Tell FLPP the customer's decision (carries the FLPP VO id for the write-back).
+  await emitToFlpp(approve ? "variation.accepted" : "variation.declined", p.flppTicketRef ?? null, {
+    voId: v.flppVoId ?? undefined, ref: v.ref, amount: v.amount, requestRef: p.requestRef ?? undefined,
+  });
+  await logActivity(null, `owner.variation.${approve ? "accept" : "decline"}`, "project", p.id, { ref: v.ref });
+  revalidatePath("/portal");
+  revalidatePath(`/projects/${p.id}`);
+  return { ok: true };
+}
+
+/** F6 — the customer signs off the handover pack. Completes the project and
+ *  stamps the immutable handover sign-off. */
+export async function ownerSignHandover(projectId: number): Promise<DecideState> {
+  const owner = await requireOwner();
+  const db = await getDb();
+  const [p] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+  if (!p || p.ownerId !== owner.id) return { error: "Not found." };
+  const [h] = await db.select().from(projectHandovers).where(eq(projectHandovers.projectId, projectId)).limit(1);
+  if (!h) return { error: "Handover pack not ready yet." };
+  if (h.status === "signed") return { ok: true }; // idempotent
+
+  await db.update(projectHandovers).set({
+    status: "signed", signedByName: owner.name, signedAt: new Date(), updatedAt: new Date(),
+  }).where(eq(projectHandovers.projectId, projectId));
+  await db.update(projects).set({ stage: "complete", status: "complete", updatedAt: new Date() }).where(eq(projects.id, projectId));
+  await db.insert(projectUpdates).values({
+    projectId, title: "Handover signed off", kind: "note",
+    body: `Handover accepted by ${owner.name}. Your home is complete${h.deliveredByName ? `, delivered by ${h.deliveredByName}` : ""}.`,
+    visibleToOwner: true,
+  });
+  await logActivity(null, "owner.handover.signoff", "project", projectId, { ref: h.signoffRef });
+  revalidatePath("/portal");
+  revalidatePath(`/projects/${projectId}`);
   return { ok: true };
 }

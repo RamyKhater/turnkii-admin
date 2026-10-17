@@ -1,11 +1,12 @@
 "use server";
 import { after } from "next/server";
+import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { projects, projectUpdates, projectMedia, projectSignoffs, payments, notifications, properties, requestNotes } from "@/lib/db/schema";
+import { projects, projectUpdates, projectMedia, projectSignoffs, projectHandovers, projectShowcases, payments, notifications, properties, requestNotes } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
 import { ensureProjectForRequest } from "@/lib/projects/ensure";
@@ -14,6 +15,44 @@ import { photoQA, draftUpdateNote, rejectionToTasks } from "@/lib/ai/progress";
 import { deliveryDigest, type ProjectSignal } from "@/lib/ai/delivery";
 
 const bool = (v: FormDataEntryValue | null) => v === "on" || v === "true";
+
+/** F6/F9 — publish a signed handover to Project Showcases, crediting the
+ *  delivering party (name only). Idempotent: re-publishing reuses the token. */
+export async function publishHandoverShowcase(projectId: number) {
+  const user = await assertCap("showcases:manage");
+  const db = await getDb();
+  const [p] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+  if (!p) throw new Error("Project not found.");
+  const [h] = await db.select().from(projectHandovers).where(eq(projectHandovers.projectId, projectId)).limit(1);
+  if (!h) throw new Error("No handover pack to publish.");
+
+  const items = (h.media ?? []).filter((m) => m.type !== "video").map((m) => ({
+    image: m.url, category: p.style || "Project", caption: m.caption || undefined,
+  }));
+  const credits = h.deliveredByName ? [{ image: "", name: h.deliveredByName }] : [];
+
+  if (h.showcaseToken) {
+    await db.update(projectShowcases).set({ items, credits, updatedAt: new Date() }).where(eq(projectShowcases.token, h.showcaseToken));
+    await logActivity(user.id, "handover.showcase_update", "project", projectId);
+    revalidatePath(`/projects/${projectId}`);
+    return { token: h.showcaseToken };
+  }
+
+  const token = randomBytes(24).toString("hex");
+  await db.insert(projectShowcases).values({
+    token, title: p.name, subtitle: p.ownerName ? `Delivered for ${p.ownerName}` : null,
+    intro: h.summary, status: "draft", items, credits, createdBy: user.id,
+  });
+  await db.update(projectHandovers).set({ showcaseToken: token, updatedAt: new Date() }).where(eq(projectHandovers.projectId, projectId));
+  await logActivity(user.id, "handover.showcase_publish", "project", projectId);
+  revalidatePath(`/projects/${projectId}`);
+  return { token };
+}
+
+// Void wrapper so a <form action> can publish the handover showcase.
+export async function publishHandoverShowcaseAction(formData: FormData) {
+  await publishHandoverShowcase(Number(formData.get("projectId")));
+}
 const splitCsv = (v: FormDataEntryValue | null) =>
   String(v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 

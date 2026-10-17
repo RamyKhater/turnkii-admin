@@ -258,6 +258,18 @@ export const projects = pgTable("projects", {
   pctComplete: integer("pct_complete").notNull().default(0),
   riskFlag: text("risk_flag"),  // active cross-system risk reason (supply/pricing), null = none
   riskAt: timestamp("risk_at", { withTimezone: true }),
+  // F1 "cleared to build" gate: both must hold before FLPP releases procurement.
+  sowApprovedAt: timestamp("sow_approved_at", { withTimezone: true }),   // customer-facing SoW accepted
+  buildClearedAt: timestamp("build_cleared_at", { withTimezone: true }), // set once SoW approved + scope locked → build.cleared emitted
+  // F9 delivering party (name + rating only — no commercial detail).
+  deliveredByName: text("delivered_by_name"),
+  deliveredRating: integer("delivered_rating"),
+  // F7 per-project reconciliation — latest figures from FLPP finance.summary (no supplier detail).
+  flppCertified: integer("flpp_certified").notNull().default(0),
+  flppCommitted: integer("flpp_committed").notNull().default(0),
+  flppPaid: integer("flpp_paid").notNull().default(0),
+  flppRetention: integer("flpp_retention").notNull().default(0),
+  financeSyncedAt: timestamp("finance_synced_at", { withTimezone: true }),
   startDate: timestamp("start_date", { withTimezone: true }),
   dueDate: timestamp("due_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -615,6 +627,47 @@ export const projectShowcaseRatings = pgTable("project_showcase_ratings", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("project_showcase_rating_voter_uq").on(t.showcaseId, t.itemIndex, t.voter)]);
+
+// ── F5 Variations. A client-borne change FLPP raised, held for the customer to
+//    approve in their account BEFORE the contract value moves. On approval
+//    Turnkii applies the delta and pushes variation.accepted back to FLPP.
+export const variations = pgTable("variations", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  ref: text("ref").notNull(),              // VO-<project>-<n>
+  flppVoId: integer("flpp_vo_id"),         // FLPP cost-row id, for the accepted write-back
+  description: text("description").notNull(),
+  amount: integer("amount").notNull().default(0), // EGP delta to the contract value
+  bearer: text("bearer").notNull().default("client"), // client | turnkii | contractor
+  status: text("status").notNull().default("pending"), // pending | accepted | declined
+  ownerId: integer("owner_id").references(() => owners.id, { onDelete: "set null" }),
+  decidedByName: text("decided_by_name"),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type Variation = typeof variations.$inferSelect;
+
+// ── F6 Handover pack. Assembled on handover.ready: unit summary, warranty, the
+//    as-built media, and the delivering party (F9). The customer signs off in
+//    their account; on sign-off the project completes and can be published to
+//    Project Showcases with the delivering-party credit.
+export const projectHandovers = pgTable("project_handovers", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }).unique(),
+  summary: text("summary"),
+  warranty: text("warranty"),
+  deliveredByName: text("delivered_by_name"), // F9 credit (name only)
+  deliveredRating: integer("delivered_rating"),
+  media: jsonb("media").$type<{ url: string; type?: string; caption?: string }[]>().notNull().default([]),
+  status: text("status").notNull().default("ready"), // ready | signed
+  signoffRef: text("signoff_ref"),                   // TK-HO-<project>
+  signedByName: text("signed_by_name"),
+  signedAt: timestamp("signed_at", { withTimezone: true }),
+  showcaseToken: text("showcase_token"),             // set when published to project showcases
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type ProjectHandover = typeof projectHandovers.$inferSelect;
 
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;

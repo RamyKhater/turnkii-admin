@@ -6,7 +6,7 @@
 process.env.FLPP_API_TOKEN ||= "test-token";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { requests, projects, scopeOfWork, projectUpdates, projectMedia, payments } from "@/lib/db/schema";
+import { requests, projects, scopeOfWork, projectUpdates, projectMedia, payments, variations, projectHandovers } from "@/lib/db/schema";
 import { ensureProjectForRequest } from "@/lib/projects/ensure";
 import { POST as eventsPOST } from "@/app/api/flpp/events/route";
 import { POST as sowPOST } from "@/app/api/flpp/sow/route";
@@ -21,6 +21,12 @@ const post = (path: string, obj: unknown) =>
 
 async function main() {
   const db = await getDb();
+  // Apply the schema to the scratch PGlite DB (never runs against Neon).
+  if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) {
+    const { migrate } = await import("drizzle-orm/pglite/migrator");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await migrate(db as any, { migrationsFolder: "./drizzle" });
+  }
   const REF = "TRN-E2E", TICKET = "FLP-E2E";
 
   // Clean any prior run.
@@ -101,6 +107,56 @@ async function main() {
   await (await eventsPOST(post("/api/flpp/events", { name: "po.delivered", ticketRef: TICKET, eventId: "evt-deliv", payload: {} }))).json();
   [proj] = await db.select().from(projects).where(eq(projects.id, ens.id));
   check("risk flag cleared on delivery", proj.riskFlag === null, proj.riskFlag);
+
+  // ───────────────────────── Wave 2: F1 / F5 / F6 / F7 / F9 ─────────────────
+  console.log("\n9. F1 build gate — green only when SoW approved AND scope locked");
+  const REF2 = "TRN-E2E2", TICKET2 = "FLP-E2E2";
+  await db.delete(requests).where(eq(requests.ref, REF2));
+  const [r2] = await db.insert(requests).values({
+    ref: REF2, contactName: "Gate Tester", email: "gate@example.com",
+    propertyType: "Villa", location: "Sheikh Zayed", services: ["finishing"], status: "won",
+  }).returning();
+  const ens3 = await ensureProjectForRequest(r2.id);
+  await (await sowPOST(post("/api/flpp/sow", { token: "sow-e2e2", docRef: "SOW-E2E2", requestRef: REF2, ticketRef: TICKET2, data: { scope: "Full" } }))).json();
+  // scope.locked alone: not cleared yet (SoW not approved).
+  await (await eventsPOST(post("/api/flpp/events", { name: "scope.locked", ticketRef: TICKET2, eventId: "evt-lock2", payload: {} }))).json();
+  let [p2] = await db.select().from(projects).where(eq(projects.id, ens3.id));
+  check("not cleared on scope.locked alone", p2.buildClearedAt === null, p2.buildClearedAt);
+  // SoW approved (simulating acceptSow's effect) + re-run the gate via a lock replay-free path.
+  await db.update(projects).set({ sowApprovedAt: new Date() }).where(eq(projects.id, ens3.id));
+  await (await eventsPOST(post("/api/flpp/events", { name: "scope.locked", ticketRef: TICKET2, eventId: "evt-lock2b", payload: {} }))).json();
+  [p2] = await db.select().from(projects).where(eq(projects.id, ens3.id));
+  check("cleared once BOTH facts hold", p2.buildClearedAt !== null, p2.buildClearedAt);
+
+  console.log("\n10. F5 variation — pending until customer approves");
+  await (await eventsPOST(post("/api/flpp/events", { name: "variation.requested", ticketRef: TICKET2, eventId: "evt-vo", payload: { voId: 77, costDelta: 120000, description: "Upgrade to marble sills", bearer: "client" } }))).json();
+  let vos = await db.select().from(variations).where(eq(variations.projectId, ens3.id));
+  check("1 pending variation", vos.length === 1 && vos[0].status === "pending" && vos[0].amount === 120000, vos[0]);
+  check("variation carries FLPP vo id", vos[0]?.flppVoId === 77, vos[0]?.flppVoId);
+  // Replay dedupes by FLPP vo id.
+  await (await eventsPOST(post("/api/flpp/events", { name: "variation.requested", ticketRef: TICKET2, eventId: "evt-vo2", payload: { voId: 77, costDelta: 120000, description: "dup", bearer: "client" } }))).json();
+  vos = await db.select().from(variations).where(eq(variations.projectId, ens3.id));
+  check("no duplicate variation on replay", vos.length === 1, vos.length);
+
+  console.log("\n11. F7 finance.summary — reconciliation figures stored");
+  await (await eventsPOST(post("/api/flpp/events", { name: "finance.summary", ticketRef: TICKET2, eventId: "evt-fin", payload: { certified: 900000, committed: 1100000, paid: 820000, retention: 45000 } }))).json();
+  [p2] = await db.select().from(projects).where(eq(projects.id, ens3.id));
+  check("certified stored", p2.flppCertified === 900000, p2.flppCertified);
+  check("paid stored", p2.flppPaid === 820000, p2.flppPaid);
+  check("retention stored", p2.flppRetention === 45000, p2.flppRetention);
+  check("finance synced timestamp set", p2.financeSyncedAt !== null, p2.financeSyncedAt);
+
+  console.log("\n12. F6/F9 handover pack — pack assembled with delivering party + as-built media");
+  // Seed one accepted as-built photo so the pack picks it up.
+  const [hu] = await db.insert(projectUpdates).values({ projectId: ens3.id, title: "As-built", kind: "progress", visibleToOwner: true }).returning();
+  await db.insert(projectMedia).values({ updateId: hu.id, type: "photo", url: "https://cdn.example/final.jpg", status: "accepted", caption: "Living room" });
+  await (await eventsPOST(post("/api/flpp/events", { name: "handover.ready", ticketRef: TICKET2, eventId: "evt-hand2", payload: { deliveredBy: "Cairo Fit-out Co.", rating: 5, warranty: "24-month warranty" } }))).json();
+  const [h] = await db.select().from(projectHandovers).where(eq(projectHandovers.projectId, ens3.id));
+  check("handover pack created", !!h && h.status === "ready", h);
+  check("delivering party carried (F9)", h?.deliveredByName === "Cairo Fit-out Co." && h?.deliveredRating === 5, { by: h?.deliveredByName, r: h?.deliveredRating });
+  check("as-built media in pack", (h?.media?.length ?? 0) === 1, h?.media?.length);
+  [p2] = await db.select().from(projects).where(eq(projects.id, ens3.id));
+  check("project credits delivering party", p2.deliveredByName === "Cairo Fit-out Co.", p2.deliveredByName);
 
   console.log(`\n=== ${pass} passed, ${fail} failed ===`);
   process.exit(fail ? 1 : 0);

@@ -3,11 +3,12 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { requests, requestNotes, scopeOfWork, type SowComment } from "@/lib/db/schema";
+import { requests, requestNotes, scopeOfWork, projects, type SowComment } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { ROLE_LABEL } from "@/lib/auth/rbac";
 import { logActivity } from "@/lib/activity";
 import { emitToFlpp } from "@/lib/flpp/emit";
+import { maybeClearBuild } from "@/lib/projects/build-gate";
 
 // The reviewer roles here (admin / ops_manager) act as the Turnkii admin,
 // operations and design reviewers in the SoW review loop.
@@ -42,6 +43,12 @@ export async function acceptSow(requestId: number, token: string) {
   if (!sow) throw new Error("Scope of Work not found.");
   await db.update(scopeOfWork).set({ status: "shared", updatedAt: new Date() }).where(eq(scopeOfWork.token, token));
   await logActivity(user.id, "flpp.sow_accept", "scope_of_work", sow.id, { requestId, docRef: sow.docRef });
+  // F1 — record the SoW-approved fact on the linked project; try the build gate
+  // (it turns green only once FLPP has also reported scope.locked).
+  if (sow.projectId) {
+    await db.update(projects).set({ sowApprovedAt: new Date(), updatedAt: new Date() }).where(eq(projects.id, sow.projectId));
+    await maybeClearBuild(db, sow.projectId);
+  }
   // Tell FLPP the customer-facing scope is approved (fact, not a command — FLPP
   // still gates its own scope lock on the design verdict).
   await emitToFlpp("sow.approved", sow.ticketRef ?? null, { docRef: sow.docRef, requestRef: sow.requestRef });

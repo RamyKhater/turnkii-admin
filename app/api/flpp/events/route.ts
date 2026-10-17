@@ -1,7 +1,8 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { activityLog, flppEvents, projects, projectUpdates, projectMedia, payments, requests } from "@/lib/db/schema";
+import { activityLog, flppEvents, projects, projectUpdates, projectMedia, projectHandovers, payments, requests, variations } from "@/lib/db/schema";
 import { notify, notifyRoles } from "@/lib/notifications";
+import { maybeClearBuild } from "@/lib/projects/build-gate";
 
 // Receives FLPP → Turnkii events and maps them onto the customer-facing project
 // (updates, media, payments, stage). Every event is logged for audit and
@@ -16,6 +17,7 @@ function authed(req: Request): boolean {
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const num = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? Math.round(n) : 0; };
 const clampPct = (v: unknown): number => Math.max(0, Math.min(100, num(v)));
+const clampRating = (v: unknown): number => Math.max(1, Math.min(5, num(v)));
 // Who in FLPP produced this event — stored on the synced update for attribution.
 const actorOf = (p: Record<string, unknown>): string | null => {
   const a = p.actor;
@@ -62,6 +64,8 @@ async function ingest(
         projectId: pid, flppActor, title: "Scope locked", kind: "note",
         body: "Design approved — scope locked and handed to execution.", visibleToOwner: true,
       });
+      // F1 — second half of the build gate; may turn it green now.
+      await maybeClearBuild(db, pid);
       break;
     }
     case "project.progress": {
@@ -125,12 +129,76 @@ async function ingest(
       break;
     }
     case "handover.ready": {
-      await db.update(projects).set({ stage: "handover", pctComplete: 100, updatedAt: new Date() }).where(eq(projects.id, pid));
+      // F9 — delivering party (name + rating only) carried on the completion event.
+      const deliveredBy = str(payload.deliveredBy) || flppActor || null;
+      const rating = payload.rating != null ? clampRating(payload.rating) : null;
+      await db.update(projects).set({
+        stage: "handover", pctComplete: 100,
+        deliveredByName: deliveredBy, deliveredRating: rating, updatedAt: new Date(),
+      }).where(eq(projects.id, pid));
       await db.insert(projectUpdates).values({
         projectId: pid, flppActor, title: "Ready for handover", kind: "note",
         body: str(payload.note) || "Works complete — your home is ready for handover. Final sign-off and your handover pack follow.",
         visibleToOwner: true,
       });
+      // F6 — assemble the handover pack from the project's as-built media.
+      const shots = await db.select({ url: projectMedia.url, type: projectMedia.type, caption: projectMedia.caption })
+        .from(projectMedia)
+        .innerJoin(projectUpdates, eq(projectMedia.updateId, projectUpdates.id))
+        .where(and(eq(projectUpdates.projectId, pid), eq(projectMedia.status, "accepted")))
+        .limit(24);
+      const media = shots.map((s) => ({ url: s.url, type: s.type, caption: s.caption ?? undefined }));
+      const summary = str(payload.summary) || `${project.name} — works complete and ready for handover.`;
+      const warranty = str(payload.warranty) || "12-month workmanship warranty on all delivered finishing and joinery.";
+      await db.insert(projectHandovers).values({
+        projectId: pid, summary, warranty,
+        deliveredByName: deliveredBy, deliveredRating: rating, media, status: "ready",
+        signoffRef: `TK-HO-${pid}`,
+      }).onConflictDoUpdate({
+        target: projectHandovers.projectId,
+        set: { summary, warranty, deliveredByName: deliveredBy, deliveredRating: rating, media, updatedAt: new Date() },
+      });
+      break;
+    }
+    case "finance.summary": {
+      // F7 — latest reconciliation figures from FLPP (no supplier detail).
+      await db.update(projects).set({
+        flppCertified: num(payload.certified), flppCommitted: num(payload.committed),
+        flppPaid: num(payload.paid), flppRetention: num(payload.retention),
+        financeSyncedAt: new Date(), updatedAt: new Date(),
+      }).where(eq(projects.id, pid));
+      break;
+    }
+    case "variation.requested": {
+      // F5 — a client-borne change FLPP raised; hold for the customer to approve
+      // in their account BEFORE the contract value moves. Deduped by FLPP VO id.
+      const delta = num(payload.costDelta ?? payload.amount);
+      const desc = str(payload.description) || str(payload.note) || "Variation";
+      const bearer = str(payload.bearer) || "client";
+      const flppVoId = Number(payload.voId) || null;
+      if (bearer === "client" && delta) {
+        const dup = flppVoId
+          ? await db.select({ id: variations.id }).from(variations).where(and(eq(variations.projectId, pid), eq(variations.flppVoId, flppVoId))).limit(1)
+          : [];
+        if (!dup.length) {
+          const [n] = await db.select({ c: sql<number>`count(*)` }).from(variations).where(eq(variations.projectId, pid));
+          const seq = Number(n?.c ?? 0) + 1;
+          await db.insert(variations).values({
+            projectId: pid, ref: `VO-${pid}-${seq}`, flppVoId, description: desc,
+            amount: delta, bearer, status: "pending", ownerId: project.ownerId ?? null,
+          });
+          await db.insert(projectUpdates).values({
+            projectId: pid, flppActor, title: "Variation awaiting your approval", kind: "note",
+            body: `${desc} — EGP ${delta.toLocaleString("en-US")} added to your contract on approval.`, visibleToOwner: true,
+          });
+          if (project.ownerId) {
+            await notifyRoles(["ops_manager", "project_manager"], {
+              type: "variation.requested", title: `Variation pending customer approval · ${project.name}`,
+              body: `${desc} · EGP ${delta.toLocaleString("en-US")}`, entity: "project", entityId: pid, href: `/projects/${pid}`,
+            });
+          }
+        }
+      }
       break;
     }
     case "po.shortfall":

@@ -4,12 +4,12 @@ import { eq, asc, desc, inArray } from "drizzle-orm";
 import { requireCap } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { projects, payments, properties, projectUpdates, projectMedia, projectSignoffs, styles, surveyFiles, flppEvents } from "@/lib/db/schema";
+import { projects, payments, properties, projectUpdates, projectMedia, projectSignoffs, projectHandovers, variations, styles, surveyFiles, flppEvents } from "@/lib/db/schema";
 import { PageHeader, Card, StatTile } from "@/components/ui";
 import { fmtEGP, summarize, KIND_LABEL } from "@/lib/payments";
 import { PaymentActions, PaymentStateBadge, AddPaymentForm } from "@/components/payments/controls";
 import { ProjectForm } from "@/components/projects/project-form";
-import { updateProject } from "@/lib/projects/actions";
+import { updateProject, publishHandoverShowcaseAction } from "@/lib/projects/actions";
 import { SendUpdateForm } from "@/components/projects/send-update";
 import { ProgressTimeline, type TLUpdate } from "@/components/projects/progress-timeline";
 import { TasksPanel } from "@/components/tasks/tasks-panel";
@@ -44,6 +44,15 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
   const media = updateIds.length ? await db.select().from(projectMedia).where(inArray(projectMedia.updateId, updateIds)).orderBy(asc(projectMedia.sort)) : [];
   const signoffs = updateIds.length ? await db.select().from(projectSignoffs).where(inArray(projectSignoffs.updateId, updateIds)) : [];
   const surveyDocs = await db.select().from(surveyFiles).where(eq(surveyFiles.projectId, pr.id)).orderBy(desc(surveyFiles.createdAt));
+  // Seam wave 2: variations (F5) + handover pack (F6/F9) for this project.
+  const vos = await db.select().from(variations).where(eq(variations.projectId, pr.id)).orderBy(desc(variations.createdAt));
+  const [handover] = await db.select().from(projectHandovers).where(eq(projectHandovers.projectId, pr.id)).limit(1);
+  // F7 reconciliation: client collected vs FLPP figures (under/over collection).
+  const recon = pr.financeSyncedAt ? {
+    collected: sum.collected, certified: pr.flppCertified, committed: pr.flppCommitted,
+    paid: pr.flppPaid, retention: pr.flppRetention, delta: sum.collected - pr.flppPaid,
+  } : null;
+  const dateShort = (d: Date | string) => new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
   const mediaByU = new Map<number, typeof media>();
   for (const m of media) { const a = mediaByU.get(m.updateId) ?? []; a.push(m); mediaByU.set(m.updateId, a); }
   const soByU = new Map(signoffs.map((s) => [s.updateId, s]));
@@ -105,6 +114,90 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
               </div>
               <Link href="/properties" className="text-sm font-bold text-olive hover:text-ink">{prop.name} →</Link>
             </div>
+          </Card>
+        )}
+
+        {/* F1 — "cleared to build" gate: both facts must hold before FLPP releases procurement. */}
+        <Card className="p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-bold">Cleared to build</h2>
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${pr.buildClearedAt ? "bg-olive/15 text-olive" : "bg-sand text-muted"}`}>
+              {pr.buildClearedAt ? `Cleared ${dateShort(pr.buildClearedAt)}` : "Not cleared"}
+            </span>
+          </div>
+          <ul className="mt-3 space-y-1.5 text-sm">
+            <li className="flex items-center gap-2">
+              <span aria-hidden>{pr.sowApprovedAt ? "✓" : "○"}</span>
+              <span className={pr.sowApprovedAt ? "text-ink" : "text-muted"}>Customer SoW accepted{pr.sowApprovedAt ? ` · ${dateShort(pr.sowApprovedAt)}` : ""}</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <span aria-hidden>{["scope_locked","in_execution","certifying","handover","complete"].includes(pr.stage) ? "✓" : "○"}</span>
+              <span className={["scope_locked","in_execution","certifying","handover","complete"].includes(pr.stage) ? "text-ink" : "text-muted"}>Scope locked by design (FLPP)</span>
+            </li>
+          </ul>
+          {!pr.buildClearedAt && <p className="mt-3 text-xs text-muted">FLPP holds procurement and delivery until both are true.</p>}
+        </Card>
+
+        {/* F5 — client-borne variations awaiting / decided by the customer. */}
+        {vos.length > 0 && (
+          <Card className="p-5">
+            <h2 className="text-sm font-bold">Variations</h2>
+            <p className="text-xs text-sub">Client-borne changes the customer approves in their account before the contract value moves.</p>
+            <ul className="mt-3 divide-y divide-line">
+              {vos.map((v) => (
+                <li key={v.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="min-w-0"><span className="font-semibold">{v.ref}</span> · {v.description}</span>
+                  <span className="flex shrink-0 items-center gap-3">
+                    <span className="font-bold tabular">{fmtEGP(v.amount)}</span>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${v.status === "accepted" ? "bg-olive/15 text-olive" : v.status === "declined" ? "bg-crit-soft text-crit" : "bg-sand text-muted"}`}>
+                      {v.status === "pending" ? "Awaiting customer" : v.status}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        {/* F7 — per-project money reconciliation (client collections vs FLPP figures). */}
+        {recon && (
+          <Card className="p-5">
+            <h2 className="text-sm font-bold">Reconciliation</h2>
+            <p className="text-xs text-sub">Client collections against FLPP execution figures{pr.financeSyncedAt ? ` · synced ${dateShort(pr.financeSyncedAt)}` : ""}.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <StatTile label="Client collected" value={fmtEGP(recon.collected)} />
+              <StatTile label="FLPP certified" value={fmtEGP(recon.certified)} />
+              <StatTile label="FLPP paid out" value={fmtEGP(recon.paid)} hint={recon.retention ? `${fmtEGP(recon.retention)} retention` : undefined} />
+              <StatTile label={recon.delta >= 0 ? "Net collected" : "Under-collected"} value={fmtEGP(Math.abs(recon.delta))} />
+            </div>
+            {recon.delta < 0 && <p className="mt-3 text-xs font-semibold text-crit">Under-collected vs money paid out to trades — raise the next instalment.</p>}
+          </Card>
+        )}
+
+        {/* F6 / F9 — handover pack, sign-off state, delivering-party credit + publish to showcase. */}
+        {handover && (
+          <Card className="p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-bold">Handover pack</h2>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${handover.status === "signed" ? "bg-olive/15 text-olive" : "bg-sand text-muted"}`}>
+                {handover.status === "signed" ? `Signed ${handover.signedByName ? `· ${handover.signedByName}` : ""}` : "Awaiting customer sign-off"}
+              </span>
+            </div>
+            {handover.summary && <p className="mt-2 text-sm text-ink">{handover.summary}</p>}
+            <dl className="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+              {handover.deliveredByName && <div><dt className="text-xs uppercase tracking-wide text-muted">Delivered by</dt><dd className="font-semibold">{handover.deliveredByName}{handover.deliveredRating ? ` · ${handover.deliveredRating}★` : ""}</dd></div>}
+              {handover.warranty && <div><dt className="text-xs uppercase tracking-wide text-muted">Warranty</dt><dd>{handover.warranty}</dd></div>}
+              <div><dt className="text-xs uppercase tracking-wide text-muted">As-built media</dt><dd>{handover.media.length} item{handover.media.length === 1 ? "" : "s"}</dd></div>
+            </dl>
+            {manage && handover.status === "signed" && (
+              <form action={publishHandoverShowcaseAction} className="mt-4">
+                <input type="hidden" name="projectId" value={pr.id} />
+                <button type="submit" className="rounded-full border border-line px-4 py-2 text-sm font-semibold hover:border-ink">
+                  {handover.showcaseToken ? "Update showcase" : "Publish to Project Showcases"}
+                </button>
+                {handover.showcaseToken && <Link href="/project-showcases" className="ml-3 text-sm font-bold text-olive hover:text-ink">View showcase →</Link>}
+              </form>
+            )}
           </Card>
         )}
 
