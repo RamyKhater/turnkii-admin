@@ -669,6 +669,26 @@ export const projectHandovers = pgTable("project_handovers", {
 });
 export type ProjectHandover = typeof projectHandovers.$inferSelect;
 
+// ── Dead-letter for lead capture. If a public submission (intake/booking) or a
+//    manual create ever fails to persist as a request, the raw payload lands
+//    here instead of being lost, so ops can review and recover it. `status`:
+//    pending → recovered (a request was created) | dismissed (spam/duplicate).
+export const failedSubmissions = pgTable("failed_submissions", {
+  id: serial("id").primaryKey(),
+  route: text("route").notNull(),              // intake | booking | manual
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  error: text("error"),                        // the error that blocked the insert
+  contactName: text("contact_name"),           // lifted out for the admin list
+  phone: text("phone"),
+  email: text("email"),
+  status: text("status").notNull().default("pending"), // pending | recovered | dismissed
+  recoveredRequestId: integer("recovered_request_id"),
+  handledBy: integer("handled_by").references(() => users.id, { onDelete: "set null" }),
+  handledAt: timestamp("handled_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type FailedSubmission = typeof failedSubmissions.$inferSelect;
+
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type Task = typeof tasks.$inferSelect;

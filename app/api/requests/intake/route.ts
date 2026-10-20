@@ -1,8 +1,10 @@
 import { after } from "next/server";
-import { sql, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { requests, owners } from "@/lib/db/schema";
+import { insertRequest, type RequestPrefix } from "@/lib/requests/ref";
+import { captureFailedSubmission } from "@/lib/requests/capture";
 import { getOwnerFromToken } from "@/lib/owner/session";
 import { bearer } from "@/lib/account/http";
 import { logActivity } from "@/lib/activity";
@@ -122,15 +124,7 @@ export async function POST(req: Request) {
   }
 
   const db = await getDb();
-  const prefix = isFinancing ? "TF" : isService ? "TS" : isProject ? "TP" : "TK";
-  // Collision-proof reference. count()+2400 breaks the moment any request is
-  // deleted (the count stops being monotonic and lands on a ref already in use,
-  // whose UNIQUE constraint then rejects the insert). Start one past the highest
-  // number ever used, and retry on the constraint below as a race guard.
-  const [{ maxn }] = await db
-    .select({ maxn: sql<number>`coalesce(max(split_part(ref, '-', 2)::int), 2399)` })
-    .from(requests);
-  let seq = Math.max(2400, Number(maxn ?? 2399) + 1);
+  const prefix: RequestPrefix = isFinancing ? "TF" : isService ? "TS" : isProject ? "TP" : "TK";
 
   // A brief that picked a visit day+slot+type is a real booking: confirm it,
   // generate a meeting link (online) + a reschedule token, and send the booking
@@ -150,13 +144,9 @@ export async function POST(req: Request) {
     if (o) ownerId = o.id;
   }
 
-  let inserted: typeof requests.$inferSelect | undefined;
-  for (let attempt = 0; attempt < 25; attempt++) {
-    try {
-      [inserted] = await db
-    .insert(requests)
-    .values({
-      ref: `${prefix}-${seq}`,
+  let row: typeof requests.$inferSelect;
+  try {
+    row = await insertRequest(db, prefix, {
       ownerId,
       contactName: parsed.data.contactName,
       phone: parsed.data.phone,
@@ -196,18 +186,14 @@ export async function POST(req: Request) {
       status: hasVisit ? "survey_booked" : "new",
       firstResponseAt: hasVisit ? new Date() : null,
       source: "website",
-    })
-    .returning();
-      break;
-    } catch (e) {
-      const code = (e as { code?: string; cause?: { code?: string } })?.code
-        ?? (e as { cause?: { code?: string } })?.cause?.code;
-      if (code === "23505" && attempt < 24) { seq++; continue; } // ref taken — bump and retry
-      throw e;
-    }
+    });
+  } catch (e) {
+    // Never drop a lead: dead-letter the raw payload + alert ops, and still
+    // acknowledge so the customer isn't turned away.
+    console.error("[intake] insert failed — dead-lettering", e);
+    const id = await captureFailedSubmission("intake", (body ?? {}) as Record<string, unknown>, e);
+    return Response.json({ ok: true, captured: !!id }, { status: 202, headers: CORS });
   }
-  if (!inserted) return Response.json({ error: "Could not save the request. Please try again." }, { status: 500, headers: CORS });
-  const row = inserted;
 
   // Email the ops/admin team and confirm to the submitter — after the response
   // so a slow mail provider never delays or fails the public submission.

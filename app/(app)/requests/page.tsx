@@ -4,7 +4,7 @@ import { and, eq, or, ilike, isNull, desc, type SQL } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/guard";
 import { canAccessSection, can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { requests, users, styles } from "@/lib/db/schema";
+import { requests, users, styles, failedSubmissions } from "@/lib/db/schema";
 import { PageHeader, StatusBadge, Card, Avatar } from "@/components/ui";
 import { FilterBar } from "@/components/requests/filter-bar";
 import { ClickableRow } from "@/components/requests/clickable-row";
@@ -45,6 +45,12 @@ export default async function RequestsPage({
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(requests.createdAt));
 
+  // Leads that failed to save are held for recovery — surface them when present.
+  const canRecover = can(user.role, "requests:create");
+  const pendingCaptured = canRecover
+    ? (await db.select({ id: failedSubmissions.id }).from(failedSubmissions).where(eq(failedSubmissions.status, "pending"))).length
+    : 0;
+
   return (
     <>
       <PageHeader
@@ -64,6 +70,12 @@ export default async function RequestsPage({
       />
 
       <div className="p-6 lg:p-8">
+        {pendingCaptured > 0 && (
+          <Link href="/requests/recovery" className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-sm hover:border-warn">
+            <span className="font-semibold text-ink">⚠ {pendingCaptured} lead{pendingCaptured === 1 ? "" : "s"} failed to save and {pendingCaptured === 1 ? "is" : "are"} awaiting recovery.</span>
+            <span className="shrink-0 font-bold text-olive">Review →</span>
+          </Link>
+        )}
         <p className="mb-3 text-sm text-sub">
           <span className="font-bold text-ink tabular">{rows.length}</span> request{rows.length === 1 ? "" : "s"}
         </p>

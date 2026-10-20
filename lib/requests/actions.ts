@@ -2,10 +2,11 @@
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { requests, requestNotes, type RequestStatus } from "@/lib/db/schema";
+import { insertRequest } from "@/lib/requests/ref";
 import { assertCap } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/rbac";
 import { logActivity } from "@/lib/activity";
@@ -99,25 +100,22 @@ export async function createRequest(_prev: CreateRequestState, formData: FormDat
   const services = formData.getAll("services").map(String).map((s) => s.trim()).filter(Boolean);
 
   const db = await getDb();
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(requests);
-  const ref = `TK-${2400 + n}`;
-
-  const [row] = await db.insert(requests).values({
-    ref, contactName: d.contactName, phone: d.phone, email: d.email || null,
+  const row = await insertRequest(db, "TK", {
+    contactName: d.contactName, phone: d.phone, email: d.email || null,
     propertyType: d.propertyType, area: d.area, units: d.units, location: d.location,
     services, style: d.style, budgetPlan: d.budgetPlan, priority: d.priority,
     channel: d.channel || "Direct",
     message: d.message, status: "new", assignedTo: d.assignedTo ?? null, source: "manual",
-  }).returning();
+  });
 
   await logActivity(user.id, "request.create", "request", row.id, { source: "manual" });
   await notifyRoles(["ops_manager", "admin"], {
-    type: "request.new", title: `New request ${ref}`,
+    type: "request.new", title: `New request ${row.ref}`,
     body: `${d.contactName} · ${d.location ?? ""}`.trim(), entity: "request", entityId: row.id, href: `/requests/${row.id}`,
   }, user.id);
   if (d.assignedTo) {
     await notify(d.assignedTo, {
-      type: "request.assigned", title: `Assigned to you: ${ref}`,
+      type: "request.assigned", title: `Assigned to you: ${row.ref}`,
       body: d.contactName, entity: "request", entityId: row.id, href: `/requests/${row.id}`,
     });
   }

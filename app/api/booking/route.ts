@@ -10,6 +10,8 @@ import { logActivity } from "@/lib/activity";
 import { notifyRoles } from "@/lib/notifications";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { dispatchBookingEmails } from "@/lib/email/booking";
+import { insertRequest } from "@/lib/requests/ref";
+import { captureFailedSubmission } from "@/lib/requests/capture";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -80,14 +82,10 @@ export async function POST(req: Request) {
   const meetingLink = d.type === "online" ? `https://meet.jit.si/turnkii-${randomBytes(9).toString("hex")}` : null;
   const bookingToken = randomBytes(18).toString("hex");
 
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(requests);
-  const ref = `TK-${2400 + n}`;
   const now = new Date();
-
-  const [created] = await db
-    .insert(requests)
-    .values({
-      ref,
+  let created: typeof requests.$inferSelect;
+  try {
+    created = await insertRequest(db, "TK", {
       contactName: d.name,
       phone: d.phone,
       email: d.email || null,
@@ -110,8 +108,13 @@ export async function POST(req: Request) {
       meetingLink,
       bookingToken,
       firstResponseAt: now,
-    })
-    .returning();
+    });
+  } catch (e) {
+    console.error("[booking] insert failed — dead-lettering", e);
+    const id = await captureFailedSubmission("booking", (payload ?? {}) as Record<string, unknown>, e);
+    return Response.json({ ok: true, captured: !!id }, { status: 202, headers: CORS });
+  }
+  const ref = created.ref;
 
   await logActivity(null, "booking.create", "request", created.id, { date: d.date, time: d.time, type: d.type });
   await notifyRoles(["ops_manager", "admin"], {
