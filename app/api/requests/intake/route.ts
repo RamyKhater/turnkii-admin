@@ -122,8 +122,15 @@ export async function POST(req: Request) {
   }
 
   const db = await getDb();
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(requests);
-  const ref = `${isFinancing ? "TF" : isService ? "TS" : isProject ? "TP" : "TK"}-${2400 + n}`;
+  const prefix = isFinancing ? "TF" : isService ? "TS" : isProject ? "TP" : "TK";
+  // Collision-proof reference. count()+2400 breaks the moment any request is
+  // deleted (the count stops being monotonic and lands on a ref already in use,
+  // whose UNIQUE constraint then rejects the insert). Start one past the highest
+  // number ever used, and retry on the constraint below as a race guard.
+  const [{ maxn }] = await db
+    .select({ maxn: sql<number>`coalesce(max(split_part(ref, '-', 2)::int), 2399)` })
+    .from(requests);
+  let seq = Math.max(2400, Number(maxn ?? 2399) + 1);
 
   // A brief that picked a visit day+slot+type is a real booking: confirm it,
   // generate a meeting link (online) + a reschedule token, and send the booking
@@ -143,10 +150,13 @@ export async function POST(req: Request) {
     if (o) ownerId = o.id;
   }
 
-  const [row] = await db
+  let inserted: typeof requests.$inferSelect | undefined;
+  for (let attempt = 0; attempt < 25; attempt++) {
+    try {
+      [inserted] = await db
     .insert(requests)
     .values({
-      ref,
+      ref: `${prefix}-${seq}`,
       ownerId,
       contactName: parsed.data.contactName,
       phone: parsed.data.phone,
@@ -188,6 +198,16 @@ export async function POST(req: Request) {
       source: "website",
     })
     .returning();
+      break;
+    } catch (e) {
+      const code = (e as { code?: string; cause?: { code?: string } })?.code
+        ?? (e as { cause?: { code?: string } })?.cause?.code;
+      if (code === "23505" && attempt < 24) { seq++; continue; } // ref taken — bump and retry
+      throw e;
+    }
+  }
+  if (!inserted) return Response.json({ error: "Could not save the request. Please try again." }, { status: 500, headers: CORS });
+  const row = inserted;
 
   // Email the ops/admin team and confirm to the submitter — after the response
   // so a slow mail provider never delays or fails the public submission.
