@@ -9,6 +9,7 @@ import { requests, failedSubmissions } from "@/lib/db/schema";
 import { insertRequest, nextRefSeq } from "@/lib/requests/ref";
 import { captureFailedSubmission } from "@/lib/requests/capture";
 import { POST as intakePOST } from "@/app/api/requests/intake/route";
+import { GET as healthGET } from "@/app/api/health/integrity/route";
 
 let pass = 0, fail = 0;
 const check = (label: string, cond: boolean, got?: unknown) => {
@@ -62,6 +63,14 @@ async function main() {
   check("contact lifted out for the admin list", cap?.contactName === "Lost Larry" && cap?.phone === "+205555", { n: cap?.contactName, p: cap?.phone });
   check("raw payload retained", (cap?.payload as { location?: string })?.location === "Zamalek", cap?.payload);
   check("error recorded", cap?.error === "boom", cap?.error);
+
+  console.log("\n4. Health check flags the pending capture, then goes green once handled");
+  const h1 = await (await healthGET(new Request("http://local/api/health/integrity"))).json();
+  check("reports unhealthy with a pending capture", h1.healthy === false && h1.pendingCaptures === 1, h1);
+  check("no duplicate/collision issues (allocator sound)", !h1.issues.some((s: string) => /Duplicate|already taken/.test(s)), h1.issues);
+  await db.update(failedSubmissions).set({ status: "dismissed" }).where(eq(failedSubmissions.id, id!));
+  const h2 = await (await healthGET(new Request("http://local/api/health/integrity"))).json();
+  check("green once nothing is pending", h2.healthy === true && h2.issues.length === 0, h2);
 
   console.log(`\n=== ${pass} passed, ${fail} failed ===`);
   process.exit(fail ? 1 : 0);
