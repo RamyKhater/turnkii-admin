@@ -1,10 +1,11 @@
 "use client";
-import { useActionState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { shareSurveyWithFlpp, acceptSow, requestSowEdit, type SowReviewState } from "@/lib/flpp/actions";
 import type { SowComment } from "@/lib/db/schema";
 
 export function ShareSurveyButton({ requestId, sharedAt, ready }: { requestId: number; sharedAt: Date | null; ready: boolean }) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState("");
   if (sharedAt) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-lime/20 px-3 py-1 text-xs font-bold text-olive">
@@ -13,15 +14,23 @@ export function ShareSurveyButton({ requestId, sharedAt, ready }: { requestId: n
     );
   }
   return (
-    <button
-      type="button"
-      disabled={!ready || pending}
-      title={ready ? "" : "Attach survey files or a survey note first"}
-      onClick={() => start(() => shareSurveyWithFlpp(requestId))}
-      className="shrink-0 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-paper hover:bg-olive disabled:opacity-40"
-    >
-      {pending ? "Sharing…" : "Share survey with flpp →"}
-    </button>
+    <div className="flex shrink-0 flex-col items-end gap-1">
+      <button
+        type="button"
+        disabled={!ready || pending}
+        title={ready ? "" : "Attach survey files or a survey note first"}
+        onClick={() => start(async () => {
+          setError("");
+          const r = await shareSurveyWithFlpp(requestId);
+          if (r?.error) setError(r.error);
+        })}
+        className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-paper hover:bg-olive disabled:opacity-40"
+      >
+        {pending && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-paper/40 border-t-paper" />}
+        {pending ? "Sharing…" : "Share survey with flpp →"}
+      </button>
+      {error && <span className="text-xs font-semibold text-crit">{error}</span>}
+    </div>
   );
 }
 
