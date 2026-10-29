@@ -689,6 +689,36 @@ export const failedSubmissions = pgTable("failed_submissions", {
 });
 export type FailedSubmission = typeof failedSubmissions.$inferSelect;
 
+// ── Estimates. A client's request for a costed estimate + payment options,
+//    answered within 24h. Turnkii auto-costs the brief (internal), FLPP refines
+//    against real prices, Turnkii builds the financing scenarios on the confirmed
+//    quotation, a human signs off, and it publishes to the customer. The heavy
+//    output (scenarios, scope, payment plan) is recomputed from the configs, so
+//    only the inputs, the confirmed quotation and lifecycle state are stored.
+export const estimates = pgTable("estimates", {
+  id: serial("id").primaryKey(),
+  ref: text("ref").notNull().unique(), // EST-####
+  requestId: integer("request_id").references(() => requests.id, { onDelete: "set null" }),
+  ownerId: integer("owner_id").references(() => owners.id, { onDelete: "set null" }),
+  brief: jsonb("brief").$type<Record<string, unknown>>().notNull().default({}), // snapshot of the client input + property data
+  tier: text("tier"),                     // essential | standard | premium | signature
+  autoQuotation: integer("auto_quotation"),       // Turnkii's internal auto-cost (not shown to the client)
+  autoBreakdown: jsonb("auto_breakdown").$type<Record<string, unknown>[]>().default([]),
+  confirmedQuotation: integer("confirmed_quotation"), // FLPP-refined figure the scenarios are built on
+  flppSheetRef: text("flpp_sheet_ref"),   // TK-QT-… pricing sheet in FLPP
+  // requested → drafting (with FLPP) → confirmed (awaiting sign-off) → signed_off → published → declined
+  status: text("status").notNull().default("requested"),
+  slaDueAt: timestamp("sla_due_at", { withTimezone: true }), // 24h from request
+  signedOffBy: integer("signed_off_by").references(() => users.id, { onDelete: "set null" }),
+  signedOffAt: timestamp("signed_off_at", { withTimezone: true }),
+  token: text("token").unique(),          // customer-share token (set on publish)
+  customerUrl: text("customer_url"),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type Estimate = typeof estimates.$inferSelect;
+
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
