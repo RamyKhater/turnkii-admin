@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { activityLog, flppEvents, projects, projectUpdates, projectMedia, projectHandovers, payments, requests, variations } from "@/lib/db/schema";
+import { activityLog, flppEvents, projects, projectUpdates, projectMedia, projectHandovers, payments, requests, variations, estimates } from "@/lib/db/schema";
 import { notify, notifyRoles } from "@/lib/notifications";
 import { maybeClearBuild } from "@/lib/projects/build-gate";
 
@@ -250,6 +250,32 @@ export async function POST(req: Request) {
   if (eventId) {
     const [seen] = await db.select({ id: flppEvents.id }).from(flppEvents).where(eq(flppEvents.eventId, eventId)).limit(1);
     if (seen) return Response.json({ ok: true, deduped: true });
+  }
+
+  // Estimate lifecycle — FLPP confirms the refined figure. Estimate-scoped (no
+  // project yet), so handled before project resolution: record the confirmed
+  // quotation and flag it for sign-off before the client sees it.
+  if (body.name === "estimate.confirmed") {
+    const requestRef = str(payload.requestRef) || str(payload.originationRef);
+    const estimateRef = str(payload.estimateRef);
+    const amount = num(payload.amount ?? payload.quotation);
+    const [est] = estimateRef
+      ? await db.select().from(estimates).where(eq(estimates.ref, estimateRef)).limit(1)
+      : requestRef
+        ? await db.select({ e: estimates }).from(estimates).innerJoin(requests, eq(estimates.requestId, requests.id)).where(eq(requests.ref, requestRef)).limit(1).then((r) => r.map((x) => x.e))
+        : [];
+    if (est && amount > 0 && est.status !== "published") {
+      await db.update(estimates).set({
+        confirmedQuotation: amount, flppSheetRef: str(payload.sheetRef) || est.flppSheetRef, status: "confirmed", updatedAt: new Date(),
+      }).where(eq(estimates.id, est.id));
+      await notifyRoles(["project_manager", "finance", "admin"], {
+        type: "estimate.confirmed", title: `Estimate ready to sign off · ${est.ref}`,
+        body: `FLPP confirmed EGP ${amount.toLocaleString("en-US")} — review and publish to the client.`,
+        entity: "estimate", entityId: est.id, href: est.requestId ? `/requests/${est.requestId}` : `/estimates/${est.id}`,
+      });
+    }
+    await db.insert(flppEvents).values({ eventId, name: body.name, ticketRef, projectId: null, payload });
+    return Response.json({ ok: true, estimate: est?.ref ?? null, matched: !!est });
   }
 
   // Resolve the project: by FLPP ticket ref, else by the originating request ref.

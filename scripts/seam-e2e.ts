@@ -6,7 +6,7 @@
 process.env.FLPP_API_TOKEN ||= "test-token";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { requests, projects, scopeOfWork, projectUpdates, projectMedia, payments, variations, projectHandovers } from "@/lib/db/schema";
+import { requests, projects, scopeOfWork, projectUpdates, projectMedia, payments, variations, projectHandovers, estimates } from "@/lib/db/schema";
 import { ensureProjectForRequest } from "@/lib/projects/ensure";
 import { POST as eventsPOST } from "@/app/api/flpp/events/route";
 import { POST as sowPOST } from "@/app/api/flpp/sow/route";
@@ -157,6 +157,20 @@ async function main() {
   check("as-built media in pack", (h?.media?.length ?? 0) === 1, h?.media?.length);
   [p2] = await db.select().from(projects).where(eq(projects.id, ens3.id));
   check("project credits delivering party", p2.deliveredByName === "Cairo Fit-out Co.", p2.deliveredByName);
+
+  console.log("\n13. estimate.confirmed — FLPP confirms a figure, Turnkii flags it for sign-off");
+  const [estRow] = await db.insert(estimates).values({
+    ref: "EST-9001", requestId: r.id, brief: {}, tier: "standard",
+    autoQuotation: 6_500_000, status: "requested", slaDueAt: new Date(Date.now() + 24 * 3600_000),
+  }).returning();
+  const ecRes = await (await eventsPOST(post("/api/flpp/events", { name: "estimate.confirmed", eventId: "evt-est", payload: { requestRef: REF, estimateRef: "EST-9001", sheetRef: "TK-QT-2026-0007", amount: 7_000_000 } }))).json();
+  check("matched the estimate", ecRes.estimate === "EST-9001", ecRes);
+  const [estAfter] = await db.select().from(estimates).where(eq(estimates.id, estRow.id));
+  check("confirmed quotation stored (7,000,000)", estAfter.confirmedQuotation === 7_000_000, estAfter.confirmedQuotation);
+  check("status → confirmed (awaiting sign-off)", estAfter.status === "confirmed", estAfter.status);
+  check("FLPP sheet ref bound", estAfter.flppSheetRef === "TK-QT-2026-0007", estAfter.flppSheetRef);
+  const ecDup = await (await eventsPOST(post("/api/flpp/events", { name: "estimate.confirmed", eventId: "evt-est", payload: { requestRef: REF, amount: 999 } }))).json();
+  check("replay deduped (no overwrite)", ecDup.deduped === true, ecDup);
 
   console.log(`\n=== ${pass} passed, ${fail} failed ===`);
   process.exit(fail ? 1 : 0);

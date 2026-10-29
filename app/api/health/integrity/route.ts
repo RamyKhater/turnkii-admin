@@ -1,6 +1,6 @@
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, and, lt, notInArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { requests, failedSubmissions } from "@/lib/db/schema";
+import { requests, failedSubmissions, estimates } from "@/lib/db/schema";
 import { alertOps } from "@/lib/alerts";
 import { notifyRoles } from "@/lib/notifications";
 
@@ -40,6 +40,11 @@ export async function GET(req: Request) {
   const [{ pending }] = await db.select({ pending: sql<number>`count(*)::int` }).from(failedSubmissions).where(sql`status = 'pending'`);
   const pendingN = Number(pending ?? 0);
   if (pendingN > 0) issues.push(`${pendingN} lead(s) captured but not yet recovered.`);
+
+  // 4. Estimate requests breaching the 24h answer SLA (not yet published).
+  const slaBreached = await db.select({ ref: estimates.ref }).from(estimates)
+    .where(and(lt(estimates.slaDueAt, new Date()), notInArray(estimates.status, ["published", "declined"])));
+  if (slaBreached.length) issues.push(`${slaBreached.length} estimate(s) past the 24h SLA, not yet published: ${slaBreached.map((e) => e.ref).join(", ")}`);
 
   const healthy = issues.length === 0;
   if (!healthy) {

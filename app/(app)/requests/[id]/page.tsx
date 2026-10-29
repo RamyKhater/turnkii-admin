@@ -4,8 +4,9 @@ import { eq, desc } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/guard";
 import { canAccessSection, can } from "@/lib/auth/rbac";
 import { getDb } from "@/lib/db";
-import { requests, requestNotes, users, styles, proposals, surveyFiles, projects, scopeOfWork } from "@/lib/db/schema";
+import { requests, requestNotes, users, styles, proposals, surveyFiles, projects, scopeOfWork, estimates } from "@/lib/db/schema";
 import { PageHeader, Card, StatusBadge, Avatar } from "@/components/ui";
+import { EstimatePanel } from "@/components/estimates/estimate-panel";
 import { StatusControl, AssignControl, NoteForm, DeleteRequest } from "@/components/requests/controls";
 import { EditRequest } from "@/components/requests/edit-request";
 import { ShareSurveyButton, SowReviewPanel } from "@/components/flpp/sow-review";
@@ -85,6 +86,17 @@ export default async function RequestDetailPage({
   const { sla } = await getSiteConfig();
   const fr = firstResponseSla(req, sla.firstResponseHours);
   const rs = resolutionSla(req, sla.resolveDays);
+
+  // Costed-estimate lifecycle for this request.
+  const canRequestEst = can(user.role, "estimates:request");
+  const canSignoffEst = can(user.role, "estimates:signoff");
+  const [est] = (canRequestEst || canSignoffEst)
+    ? await db.select().from(estimates).where(eq(estimates.requestId, id)).limit(1)
+    : [undefined];
+  const estimateView = est ? {
+    id: est.id, ref: est.ref, status: est.status, autoQuotation: est.autoQuotation,
+    confirmedQuotation: est.confirmedQuotation, slaDueAt: est.slaDueAt ? est.slaDueAt.toISOString() : null, customerUrl: est.customerUrl,
+  } : null;
 
   const owns = user.role !== "agent" || req.assignedTo === user.id;
   const canUpdate = can(user.role, "requests:update") && owns;
@@ -255,6 +267,10 @@ export default async function RequestDetailPage({
               </ul>
             </Card>
           ) : null}
+
+          {(canRequestEst || canSignoffEst) && (
+            <EstimatePanel requestId={id} estimate={estimateView} canRequest={canRequestEst} canSignoff={canSignoffEst} />
+          )}
 
           {canFlpp && (
             <Card className="p-6">

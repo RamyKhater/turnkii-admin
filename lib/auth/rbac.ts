@@ -32,6 +32,8 @@ export type Capability =
   | "payments:record"  // raise a payment / log a receipt (pending)
   | "payments:verify"  // clear/verify a payment to paid — separation of duties
   | "projects:manage"
+  | "estimates:request"  // kick off a costed-estimate request to FLPP
+  | "estimates:signoff"  // approve the confirmed estimate before the client sees it
   | "pricing:manage"
   | "proposals:manage"
   | "showcases:manage"
@@ -44,23 +46,23 @@ const MATRIX: Record<Role, Capability[]> = {
     "requests:view_all", "requests:create", "requests:assign", "requests:update",
     "requests:delete", "requests:note", "analytics:view", "content:edit",
     "properties:view", "properties:edit", "payments:view", "payments:manage", "payments:record", "payments:verify",
-    "projects:manage", "pricing:manage", "proposals:manage", "showcases:manage", "tasks:manage",
+    "projects:manage", "estimates:request", "estimates:signoff", "pricing:manage", "proposals:manage", "showcases:manage", "tasks:manage",
     "settings:manage", "users:manage",
   ],
   product_manager: ["requests:view_all", "analytics:view", "content:edit", "properties:view", "payments:view", "pricing:manage", "showcases:manage", "tasks:manage"],
   ops_manager: [
     "requests:view_all", "requests:create", "requests:assign", "requests:update",
     "requests:note", "analytics:view", "properties:view", "properties:edit",
-    "payments:view", "payments:manage", "payments:record", "projects:manage", "proposals:manage", "showcases:manage", "tasks:manage",
+    "payments:view", "payments:manage", "payments:record", "projects:manage", "estimates:request", "proposals:manage", "showcases:manage", "tasks:manage",
   ],
   project_manager: [
     "requests:view_all", "requests:update", "requests:note", "analytics:view",
     "properties:view", "payments:view", "payments:manage", "payments:record", "projects:manage",
-    "proposals:manage", "showcases:manage", "tasks:manage",
+    "estimates:request", "estimates:signoff", "proposals:manage", "showcases:manage", "tasks:manage",
   ],
   finance: [
     "requests:view_all", "analytics:view", "properties:view",
-    "payments:view", "payments:record", "payments:verify",
+    "payments:view", "payments:record", "payments:verify", "estimates:signoff",
   ],
   agent: ["requests:view_assigned", "requests:update", "requests:note", "proposals:manage", "showcases:manage"],
   content_editor: ["content:edit"],
