@@ -54,6 +54,7 @@ const schema = z.object({
   // compared per arm; arm 'B' also enforces a valid email server-side.
   expEmail: z.enum(["A", "B"]).optional(),
   message: z.string().trim().max(4000).optional(),
+  estimate: z.boolean().optional(), // client asked for a costed estimate ("Get a costed estimate")
 }).superRefine((data, ctx) => {
   if (data.expEmail === "B" && !data.email) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["email"], message: "Email is required" });
@@ -210,6 +211,11 @@ export async function POST(req: Request) {
       }
     } catch (e) { console.error("[intake] email dispatch failed", e); }
     try { await dispatchRequestWhatsApp(row); } catch (e) { console.error("[intake] whatsapp dispatch failed", e); }
+    // Client asked for a costed estimate → open it (starts the 24h SLA now).
+    if (parsed.data.estimate && kind === "brief") {
+      try { const { openEstimateForRequest } = await import("@/lib/estimate/open"); await openEstimateForRequest(row.id); }
+      catch (e) { console.error("[intake] auto estimate failed", e); }
+    }
   });
 
   await logActivity(null, "request.intake", "request", row.id, { source: "website", kind });
