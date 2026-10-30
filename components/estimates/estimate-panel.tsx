@@ -1,7 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { requestEstimate, signOffEstimate } from "@/lib/estimate/actions";
+import { requestEstimate, signOffEstimate, resendEstimate } from "@/lib/estimate/actions";
 
 export type EstimateView = {
   id: number; ref: string; status: string;
@@ -54,6 +54,16 @@ export function EstimatePanel({ requestId, estimate, canRequest, canSignoff }: {
         <div><dt className="text-xs uppercase tracking-wide text-muted">Due</dt><dd className={`font-semibold tabular ${overdue ? "text-crit" : ""}`}>{due ? due.toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}{overdue ? " · overdue" : ""}</dd></div>
       </dl>
       {err && <p className="mt-2 text-xs text-crit">{err}</p>}
+      {(estimate.status === "requested" || estimate.status === "drafting") && canRequest && (
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            onClick={() => start(async () => { setErr(""); const r = await resendEstimate(estimate.id); if (r.error) setErr(r.error); else router.refresh(); })}
+            disabled={pending}
+            className="rounded-full border border-line px-4 py-2 text-sm font-bold hover:border-ink disabled:opacity-60"
+          >Re-send to FLPP</button>
+          <span className="text-xs text-sub">Opens a draft pricing sheet in FLPP → Pricing for the estimator.</span>
+        </div>
+      )}
       {estimate.status === "confirmed" && canSignoff && (
         <button
           onClick={() => start(async () => { setErr(""); const r = await signOffEstimate(estimate.id); if (r.error) setErr(r.error); else router.refresh(); })}

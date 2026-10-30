@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { estimates, requests, owners } from "@/lib/db/schema";
 import { assertCap } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity";
+import { emitToFlpp } from "@/lib/flpp/emit";
 import { openEstimateForRequest } from "@/lib/estimate/open";
 import { sendEmail, emailEnabled, layout, button, appUrl, facts } from "@/lib/email/send";
 
@@ -15,6 +16,26 @@ export async function requestEstimate(requestId: number): Promise<{ error?: stri
   const res = await openEstimateForRequest(requestId, user.id);
   revalidatePath(`/requests/${requestId}`);
   return res;
+}
+
+/** Re-push an already-opened estimate to FLPP. For when the first (best-effort)
+ *  push didn't land — FLPP's sheet creation is idempotent per estimate ref. */
+export async function resendEstimate(estimateId: number): Promise<{ error?: string; ok?: boolean }> {
+  const user = await assertCap("estimates:request");
+  const db = await getDb();
+  const [e] = await db.select().from(estimates).where(eq(estimates.id, estimateId)).limit(1);
+  if (!e) return { error: "Not found." };
+  if (e.status === "published" || e.status === "confirmed") return { ok: true }; // already answered by FLPP
+  if (!e.requestId) return { error: "No linked request." };
+  const [r] = await db.select().from(requests).where(eq(requests.id, e.requestId)).limit(1);
+  if (!r) return { error: "Request not found." };
+  await emitToFlpp("estimate.requested", null, {
+    requestRef: r.ref, estimateRef: e.ref, autoQuotation: e.autoQuotation ?? 0, tier: e.tier,
+    brief: { client: r.contactName, unit: r.propertyType, area: r.area, units: r.units, services: r.services ?? [], style: r.style },
+  });
+  await logActivity(user.id, "estimate.resend", "estimate", e.id, { ref: e.ref });
+  revalidatePath(`/requests/${e.requestId}`);
+  return { ok: true };
 }
 
 /** Sign off the FLPP-confirmed estimate and publish it to the customer. Requires
